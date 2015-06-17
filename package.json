@@ -29,5 +29,8 @@
     "gulp-plumber": "^1.0.1",
     "mocha": "^2.2.5",
     "zana-assert": "0.0.1"
+  },
+  "dependencies": {
+    "babel-runtime": "^5.5.8"
   }
 }

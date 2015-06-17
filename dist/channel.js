@@ -1,17 +1,28 @@
 'use strict';
 
-Object.defineProperty(exports, '__esModule', {
+var _createClass = require('babel-runtime/helpers/create-class')['default'];
+
+var _classCallCheck = require('babel-runtime/helpers/class-call-check')['default'];
+
+var _slicedToArray = require('babel-runtime/helpers/sliced-to-array')['default'];
+
+var _Object$defineProperty = require('babel-runtime/core-js/object/define-property')['default'];
+
+var _Symbol = require('babel-runtime/core-js/symbol')['default'];
+
+var _getIterator = require('babel-runtime/core-js/get-iterator')['default'];
+
+var _Promise = require('babel-runtime/core-js/promise')['default'];
+
+var _regeneratorRuntime = require('babel-runtime/regenerator')['default'];
+
+var _Array$entries = require('babel-runtime/core-js/array/entries')['default'];
+
+_Object$defineProperty(exports, '__esModule', {
     value: true
 });
 
-var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
-
 exports.timeout = timeout;
-
-function _slicedToArray(arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i['return']) _i['return'](); } finally { if (_d) throw _e; } } return _arr; } else { throw new TypeError('Invalid attempt to destructure non-iterable instance'); } }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
-
 /* eslint no-cond-assign: 0 */ // intentional while loop assign in flush
 /* eslint no-unused-vars: 0 */ // so we can have log, even when not using it
 /* eslint no-empty: 0 */ // intentional empty block inside Channel.produce()
@@ -28,22 +39,22 @@ var log = console.log.bind(console);
     ENDED  : The Channel is closed, and no longer has values to be taken.
 */
 var STATES = {
-    OPEN: Symbol('channel_open'),
-    CLOSED: Symbol('channel_closed'),
-    ENDED: Symbol('channel_ended')
+    OPEN: _Symbol('channel_open'),
+    CLOSED: _Symbol('channel_closed'),
+    ENDED: _Symbol('channel_ended')
 };
 
 exports.STATES = STATES;
 var ACTIONS = {
     // channel has just been closed, and has no more values to take
-    DONE: Symbol('channel_done'),
-    CANCEL: Symbol('channel_cancel')
+    DONE: _Symbol('channel_done'),
+    CANCEL: _Symbol('channel_cancel')
 };
 
 exports.ACTIONS = ACTIONS;
-var SHOULD_CLOSE = Symbol('channel_should_close');
-var CHANNEL_SOURCE = Symbol('channel_source');
-var IS_PIPED = Symbol('channel_piped'); // TBD -- do we need this?
+var SHOULD_CLOSE = _Symbol('channel_should_close');
+var CHANNEL_SOURCE = _Symbol('channel_source');
+var IS_PIPED = _Symbol('channel_piped'); // TBD -- do we need this?
 
 /*
     Error expose method to assist with ensuring
@@ -103,7 +114,7 @@ function finish(ch) {
     var _iteratorError = undefined;
 
     try {
-        for (var _iterator = ch.waiting[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        for (var _iterator = _getIterator(ch.waiting), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
             var _waiting = _step.value;
 
             _waiting();
@@ -127,12 +138,12 @@ function finish(ch) {
 function timeout() {
     var delay = arguments[0] === undefined ? 0 : arguments[0];
 
-    return new Promise(function (resolve, reject) {
+    return new _Promise(function (resolve, reject) {
         setTimeout(resolve, delay);
     });
 }
 
-var STATE = Symbol('channel_state');
+var STATE = _Symbol('channel_state');
 
 var Channel = (function () {
 
@@ -294,7 +305,7 @@ var Channel = (function () {
             var _iteratorError2 = undefined;
 
             try {
-                for (var _iterator2 = iterable[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                for (var _iterator2 = _getIterator(iterable), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
                     var val = _step2.value;
 
                     ch.put(val);
@@ -362,7 +373,7 @@ var Channel = (function () {
             onto Channel.puts to be resolved when buffer space is available.
         */
         value: function put(ch, val) {
-            return new Promise(function (resolve) {
+            return new _Promise(function (resolve) {
                 if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
                 ch.puts.push(function () {
                     val = ch.transform(val); // consider try/catch and exposing a stderr style channel
@@ -384,7 +395,7 @@ var Channel = (function () {
             onto Channel.takes to be resolved when a value is available.
         */
         value: function take(ch) {
-            return new Promise(function (resolve) {
+            return new _Promise(function (resolve) {
                 if (ch.state === STATES.ENDED) return resolve(Channel.DONE);
                 ch.takes.push(function (x) {
                     return resolve(x);
@@ -413,7 +424,7 @@ var Channel = (function () {
         */
         value: function produce(ch, producer) {
             var spin;
-            return regeneratorRuntime.async(function produce$(context$2$0) {
+            return _regeneratorRuntime.async(function produce$(context$2$0) {
                 var _this = this;
 
                 while (1) switch (context$2$0.prev = context$2$0.next) {
@@ -422,7 +433,7 @@ var Channel = (function () {
 
                         (function callee$2$0() {
                             var val, r;
-                            return regeneratorRuntime.async(function callee$2$0$(context$3$0) {
+                            return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
                                 while (1) switch (context$3$0.prev = context$3$0.next) {
                                     case 0:
                                         context$3$0.prev = 0;
@@ -435,13 +446,13 @@ var Channel = (function () {
 
                                         val = producer();
 
-                                        if (!(val instanceof Promise)) {
+                                        if (!(val instanceof _Promise)) {
                                             context$3$0.next = 9;
                                             break;
                                         }
 
                                         context$3$0.next = 6;
-                                        return regeneratorRuntime.awrap(val);
+                                        return _regeneratorRuntime.awrap(val);
 
                                     case 6:
                                         val = context$3$0.sent;
@@ -450,11 +461,11 @@ var Channel = (function () {
 
                                     case 9:
                                         context$3$0.next = 11;
-                                        return regeneratorRuntime.awrap(timeout());
+                                        return _regeneratorRuntime.awrap(timeout());
 
                                     case 11:
                                         context$3$0.next = 13;
-                                        return regeneratorRuntime.awrap(ch.put(val));
+                                        return _regeneratorRuntime.awrap(ch.put(val));
 
                                     case 13:
                                         r = context$3$0.sent;
@@ -507,7 +518,7 @@ var Channel = (function () {
             var consumer = arguments[1] === undefined ? function () {} // noop default
             : arguments[1];
             var spin;
-            return regeneratorRuntime.async(function consume$(context$2$0) {
+            return _regeneratorRuntime.async(function consume$(context$2$0) {
                 var _this2 = this;
 
                 while (1) switch (context$2$0.prev = context$2$0.next) {
@@ -516,14 +527,14 @@ var Channel = (function () {
 
                         (function callee$2$0() {
                             var val;
-                            return regeneratorRuntime.async(function callee$2$0$(context$3$0) {
+                            return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
                                 while (1) switch (context$3$0.prev = context$3$0.next) {
                                     case 0:
                                         val = null;
 
                                     case 1:
                                         context$3$0.next = 3;
-                                        return regeneratorRuntime.awrap(ch.take());
+                                        return _regeneratorRuntime.awrap(ch.take());
 
                                     case 3:
                                         context$3$0.t0 = val = context$3$0.sent;
@@ -535,7 +546,7 @@ var Channel = (function () {
 
                                         context$3$0.prev = 5;
                                         context$3$0.next = 8;
-                                        return regeneratorRuntime.awrap(consumer(val));
+                                        return _regeneratorRuntime.awrap(consumer(val));
 
                                     case 8:
                                         context$3$0.next = 13;
@@ -575,7 +586,7 @@ var Channel = (function () {
             when the channel has fully ended.
         */
         value: function done(ch) {
-            return new Promise(function (resolve, reject) {
+            return new _Promise(function (resolve, reject) {
                 if (ch.state === STATES.ENDED) return resolve();else ch.waiting.push(function () {
                     resolve();
                 });
@@ -603,7 +614,7 @@ var Channel = (function () {
             var _iteratorError3 = undefined;
 
             try {
-                for (var _iterator3 = functions[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+                for (var _iterator3 = _getIterator(functions), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
                     var fn = _step3.value;
 
                     channels.push(new Channel(1, fn));
@@ -655,21 +666,21 @@ var Channel = (function () {
                     (function callee$3$0() {
                         var _loop, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, _ret2;
 
-                        return regeneratorRuntime.async(function callee$3$0$(context$4$0) {
+                        return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
                             var _this3 = this;
 
                             while (1) switch (context$4$0.prev = context$4$0.next) {
                                 case 0:
                                     _loop = function callee$4$0() {
                                         var take, val, channel;
-                                        return regeneratorRuntime.async(function callee$4$0$(context$5$0) {
+                                        return _regeneratorRuntime.async(function callee$4$0$(context$5$0) {
                                             while (1) switch (context$5$0.prev = context$5$0.next) {
                                                 case 0:
                                                     take = parent.take();
 
                                                     take[CHANNEL_SOURCE] = parent;
                                                     context$5$0.next = 4;
-                                                    return regeneratorRuntime.awrap(take);
+                                                    return _regeneratorRuntime.awrap(take);
 
                                                 case 4:
                                                     val = context$5$0.sent;
@@ -689,7 +700,7 @@ var Channel = (function () {
                                                     _iteratorError4 = undefined;
                                                     context$5$0.prev = 10;
 
-                                                    for (_iterator4 = parent.pipeline[Symbol.iterator](); !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+                                                    for (_iterator4 = _getIterator(parent.pipeline); !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
                                                         channel = _step4.value;
 
                                                         channel.close(true);
@@ -731,7 +742,7 @@ var Channel = (function () {
 
                                                 case 27:
                                                     context$5$0.next = 29;
-                                                    return regeneratorRuntime.awrap(Promise.all(parent.pipeline.map(function (x) {
+                                                    return _regeneratorRuntime.awrap(_Promise.all(parent.pipeline.map(function (x) {
                                                         return x.put(val);
                                                     })));
 
@@ -749,7 +760,7 @@ var Channel = (function () {
                                     }
 
                                     context$4$0.next = 4;
-                                    return regeneratorRuntime.awrap(_loop());
+                                    return _regeneratorRuntime.awrap(_loop());
 
                                 case 4:
                                     _ret2 = context$4$0.sent;
@@ -780,7 +791,7 @@ var Channel = (function () {
                         var _iteratorError5 = undefined;
 
                         try {
-                            for (var _iterator5 = parent.takes[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+                            for (var _iterator5 = _getIterator(parent.takes), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
                                 var take = _step5.value;
                             }
                         } catch (err) {
@@ -819,7 +830,7 @@ var Channel = (function () {
             var _iteratorError6 = undefined;
 
             try {
-                for (var _iterator6 = channels[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+                for (var _iterator6 = _getIterator(channels), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
                     var _parent = _step6.value;
 
                     _parent.pipe(child);
@@ -855,7 +866,7 @@ var Channel = (function () {
             var _iteratorError7 = undefined;
 
             try {
-                for (var _iterator7 = Array.entries(parent.pipeline)[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+                for (var _iterator7 = _getIterator(_Array$entries(parent.pipeline)), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
                     var _step7$value = _slicedToArray(_step7.value, 2);
 
                     var index = _step7$value[0];
@@ -865,7 +876,7 @@ var Channel = (function () {
                     var _iteratorError8 = undefined;
 
                     try {
-                        for (var _iterator8 = channels[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+                        for (var _iterator8 = _getIterator(channels), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
                             var ch2 = _step8.value;
 
                             if (pipe === ch2) {

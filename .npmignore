@@ -1,0 +1,8 @@
+*.sublime-project
+*.sublime-workspace
+
+node_modules
+bin
+tests
+src/zana-browser.js
+src/zana-require.js

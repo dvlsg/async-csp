@@ -1,8 +1,6 @@
-*.sublime-project
-*.sublime-workspace
-
-node_modules
-bin
-tests
-src/zana-browser.js
-src/zana-require.js
+src
+test
+.babelrc
+.eslintrc
+.npmignore
+gulpfile.js

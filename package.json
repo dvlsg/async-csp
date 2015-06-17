@@ -2,7 +2,7 @@
   "name": "async-csp",
   "version": "0.0.1",
   "description": "CSP style channels using ES7 async/await",
-  "main": "bin/channel.js",
+  "main": "dist/channel.js",
   "scripts": {
     "test": "gulp test",
     "build": "gulp build",

@@ -1,6 +1,6 @@
 {
   "name": "async-csp",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "CSP style channels using ES7 async/await",
   "main": "dist/channel.js",
   "scripts": {

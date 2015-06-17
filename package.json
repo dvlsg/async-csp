@@ -2,6 +2,16 @@
   "name": "async-csp",
   "version": "0.0.2",
   "description": "CSP style channels using ES7 async/await",
+  "keywords": [
+    "async",
+    "await",
+    "ES7",
+    "CSP",
+    "channel",
+    "pipe",
+    "pipeline",
+    "promise"
+  ],
   "main": "dist/channel.js",
   "scripts": {
     "test": "gulp test",

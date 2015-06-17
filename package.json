@@ -3,14 +3,15 @@
   "version": "0.0.2",
   "description": "CSP style channels using ES7 async/await",
   "keywords": [
-    "async",
-    "await",
-    "ES7",
     "CSP",
+    "communicating",
+    "sequential",
+    "processes"
     "channel",
     "pipe",
     "pipeline",
-    "promise"
+    "async",
+    "await"
   ],
   "main": "dist/channel.js",
   "scripts": {

@@ -24,34 +24,39 @@ _Object$defineProperty(exports, '__esModule', {
 
 var MAX_SIZE = 4096;
 
+// can be swapped to symbols to make more 'private'
+// makes it more difficult to debug, though.
+var ARR = '_arr';
+var SIZE = '_size';
+
 // internal to be inherited
 
 var Data = (function () {
     function Data() {
         _classCallCheck(this, Data);
 
-        this._arr = [];
+        this[ARR] = [];
     }
 
     _createClass(Data, [{
         key: _Symbol$iterator,
         value: function () {
-            return _getIterator(this._arr); // should be overridden for stacks, so we iterate from back to front
+            return _getIterator(this[ARR]); // should be overridden for stacks, so we iterate from back to front
         }
     }, {
         key: 'flush',
         value: function flush() {
-            this._arr.length = 0;
+            this[ARR].length = 0;
         }
     }, {
         key: 'empty',
         value: function empty() {
-            return this._arr.length === 0;
+            return this[ARR].length === 0;
         }
     }, {
         key: 'toString',
         value: function toString() {
-            return this._arr.join(', ');
+            return this[ARR].join(', ');
         }
     }, {
         key: _Symbol$toStringTag,
@@ -61,7 +66,7 @@ var Data = (function () {
     }, {
         key: 'length',
         get: function () {
-            return this._arr.length;
+            return this[ARR].length;
         }
     }], [{
         key: 'construct',
@@ -74,7 +79,7 @@ var Data = (function () {
     return Data;
 })();
 
-Data[_Symbol$toStringTag] = 'Data';
+// Data[Symbol.toStringTag] = 'Data';
 
 var Stack = (function (_Data) {
     function Stack() {
@@ -88,17 +93,17 @@ var Stack = (function (_Data) {
     _createClass(Stack, [{
         key: 'push',
         value: function push(val) {
-            this._arr.push(val);
+            this[ARR].push(val);
         }
     }, {
         key: 'pop',
         value: function pop() {
-            return this._arr.pop();
+            return this[ARR].pop();
         }
     }, {
         key: 'peek',
         value: function peek() {
-            return this._arr[this.length - 1]; // super or `this`?
+            return this[ARR][this.length - 1]; // super or `this`?
         }
     }, {
         key: _Symbol$toStringTag,
@@ -112,7 +117,7 @@ var Stack = (function (_Data) {
 
 exports.Stack = Stack;
 
-Stack[_Symbol$toStringTag] = 'Stack';
+// Stack[Symbol.toStringTag] = 'Stack';
 
 var FixedStack = (function (_Stack) {
     function FixedStack() {
@@ -121,7 +126,7 @@ var FixedStack = (function (_Stack) {
         _classCallCheck(this, FixedStack);
 
         _get(Object.getPrototypeOf(FixedStack.prototype), 'constructor', this).call(this);
-        this._size = size;
+        this[SIZE] = size;
     }
 
     _inherits(FixedStack, _Stack);
@@ -134,7 +139,7 @@ var FixedStack = (function (_Stack) {
     }, {
         key: 'full',
         value: function full() {
-            return this.length >= this._size;
+            return this.length >= this[SIZE];
         }
     }, {
         key: _Symbol$toStringTag,
@@ -144,7 +149,7 @@ var FixedStack = (function (_Stack) {
     }, {
         key: 'size',
         get: function () {
-            return this._size;
+            return this[SIZE];
         }
     }]);
 
@@ -153,7 +158,7 @@ var FixedStack = (function (_Stack) {
 
 exports.FixedStack = FixedStack;
 
-FixedStack[_Symbol$toStringTag] = 'FixedStack';
+// FixedStack[Symbol.toStringTag] = 'FixedStack';
 
 var Queue = (function (_Data2) {
     function Queue() {
@@ -167,17 +172,17 @@ var Queue = (function (_Data2) {
     _createClass(Queue, [{
         key: 'push',
         value: function push(val) {
-            this._arr.push(val);
+            this[ARR].push(val);
         }
     }, {
         key: 'shift',
         value: function shift() {
-            return this._arr.shift();
+            return this[ARR].shift();
         }
     }, {
         key: 'peek',
         value: function peek() {
-            return this._arr[0];
+            return this[ARR][0];
         }
     }, {
         key: _Symbol$toStringTag,
@@ -191,7 +196,7 @@ var Queue = (function (_Data2) {
 
 exports.Queue = Queue;
 
-Queue[_Symbol$toStringTag] = 'Queue'; // cheats! this is so Object.prototype.toString.call(Queue) returns '[object Queue]' (as expected?)
+// Queue[Symbol.toStringTag] = 'Queue'; // cheats! this is so Object.prototype.toString.call(Queue) returns '[object Queue]' (as expected?)
 
 var FixedQueue = (function (_Queue) {
     function FixedQueue() {
@@ -200,7 +205,7 @@ var FixedQueue = (function (_Queue) {
         _classCallCheck(this, FixedQueue);
 
         _get(Object.getPrototypeOf(FixedQueue.prototype), 'constructor', this).call(this);
-        this._size = size;
+        this[SIZE] = size;
     }
 
     _inherits(FixedQueue, _Queue);
@@ -214,7 +219,7 @@ var FixedQueue = (function (_Queue) {
     }, {
         key: 'full',
         value: function full() {
-            return this.length >= this._size;
+            return this.length >= this[SIZE];
         }
     }, {
         key: _Symbol$toStringTag,
@@ -224,7 +229,7 @@ var FixedQueue = (function (_Queue) {
     }, {
         key: 'size',
         get: function () {
-            return this._size;
+            return this[SIZE];
         }
     }]);
 
@@ -233,4 +238,4 @@ var FixedQueue = (function (_Queue) {
 
 exports.FixedQueue = FixedQueue;
 
-FixedQueue[_Symbol$toStringTag] = 'FixedQueue';
+// FixedQueue[Symbol.toStringTag] = 'FixedQueue';

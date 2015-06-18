@@ -149,7 +149,7 @@ var Channel = (function () {
 
     /*
         Default constructor for a Channel.
-          Accepts an optional size for the internal buffer,
+         Accepts an optional size for the internal buffer,
         and an optional transform function to be used by the Channel.
     */
 
@@ -168,6 +168,7 @@ var Channel = (function () {
         this.transform = transform;
         this.pipeline = [];
         this.waiting = [];
+        this.spaces = []; // new name, if necessary
         this[STATE] = STATES.OPEN;
     }
 
@@ -289,6 +290,27 @@ var Channel = (function () {
         get: function () {
             return this[STATE];
         }
+    }, {
+        key: 'length',
+
+        /*
+            Gets the length of the channel,
+            which is interpreted as the current length of the buffer
+            added to any puts which are waiting for space in the buffer.
+        */
+        get: function () {
+            return this.buf.length + this.puts.length;
+        }
+    }, {
+        key: 'size',
+
+        /*
+            Gets the size of the channel,
+            which is interpreted as the size of the buffer.
+        */
+        get: function () {
+            return this.buf.size;
+        }
     }], [{
         key: 'from',
 
@@ -333,7 +355,7 @@ var Channel = (function () {
 
         /*
             Marks a channel to no longer be writable.
-              Accepts an optional boolean `all`, to signify
+             Accepts an optional boolean `all`, to signify
             whether or not to close the entire pipeline.
         */
         value: function close(ch) {
@@ -349,14 +371,6 @@ var Channel = (function () {
     }, {
         key: 'empty',
 
-        // static destroy(ch: Channel) {
-        //     Channel.close(ch, true);
-        // }
-
-        // destroy() {
-        //     Channel.destroy(this);
-        // }
-
         /*
             Determines if a channel
             has any values left for `take` to use.
@@ -369,7 +383,7 @@ var Channel = (function () {
 
         /*
             Places a new value onto the provided channel.
-              If the buffer is full, the promise will be pushed
+             If the buffer is full, the promise will be pushed
             onto Channel.puts to be resolved when buffer space is available.
         */
         value: function put(ch, val) {
@@ -377,13 +391,11 @@ var Channel = (function () {
                 if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
                 ch.puts.push(function () {
                     val = ch.transform(val); // consider try/catch and exposing a stderr style channel
-                    ch.buf.push(val); // need val to be scoped for later execution
+                    if (typeof val !== 'undefined') ch.buf.push(val); // need val to be scoped for later execution
                     resolve();
                 });
                 if (!ch.buf.full()) ch.puts.shift()();
-                if (!ch.takes.empty()) {
-                    ch.takes.shift()(shift(ch));
-                }
+                if (!ch.takes.empty() && !ch.buf.empty()) ch.takes.shift()(shift(ch));
             });
         }
     }, {
@@ -391,7 +403,7 @@ var Channel = (function () {
 
         /*
             Takes the first value from the provided channel.
-              If no value is provided, the promise will be pushed
+             If no value is provided, the promise will be pushed
             onto Channel.takes to be resolved when a value is available.
         */
         value: function take(ch) {
@@ -417,10 +429,10 @@ var Channel = (function () {
         /*
             Helper method for putting values onto a channel
             from a provided producer whenever there is space.
-              CAREFUL WITH THIS.
+             CAREFUL WITH THIS.
             Right now, if we produce methods that can be run without any delay whatsoever,
             it is impossible to break out of the loop using regeneratorRuntime,
-            even if we await timeout() then close the channel -- the await timeout() will never be passed.
+            even if we await timeout() then close the channleimd b-- the await timeout() will never be passed.
         */
         value: function produce(ch, producer) {
             var spin;
@@ -600,7 +612,7 @@ var Channel = (function () {
             for the provided function arguments,
             setting up a pipe from the first channel
             all the way down to the last channel.
-              Returns references to both
+             Returns references to both
             the first and the last channel.
         */
         value: function pipeline() {
@@ -645,9 +657,9 @@ var Channel = (function () {
         /*
             Builds a pipeline from a parent channel
             to one or more children.
-              This will automatically pipe values from
+             This will automatically pipe values from
             the parent onto each of the children.
-              (dev note: careful, errors which are thrown from here
+             (dev note: careful, errors which are thrown from here
              do NOT bubble up to the user yet in nodejs.
              will be fixed in the future, supposedly).
         */
@@ -784,30 +796,6 @@ var Channel = (function () {
                     })();
                     parent[ACTIONS.CANCEL] = function () {
                         running = false;
-                        // log(parent);
-                        // log(parent.takes);
-                        var _iteratorNormalCompletion5 = true;
-                        var _didIteratorError5 = false;
-                        var _iteratorError5 = undefined;
-
-                        try {
-                            for (var _iterator5 = _getIterator(parent.takes), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-                                var take = _step5.value;
-                            }
-                        } catch (err) {
-                            _didIteratorError5 = true;
-                            _iteratorError5 = err;
-                        } finally {
-                            try {
-                                if (!_iteratorNormalCompletion5 && _iterator5['return']) {
-                                    _iterator5['return']();
-                                }
-                            } finally {
-                                if (_didIteratorError5) {
-                                    throw _iteratorError5;
-                                }
-                            }
-                        }
                     };
                 })();
             }
@@ -825,27 +813,27 @@ var Channel = (function () {
             }
 
             var child = new Channel();
-            var _iteratorNormalCompletion6 = true;
-            var _didIteratorError6 = false;
-            var _iteratorError6 = undefined;
+            var _iteratorNormalCompletion5 = true;
+            var _didIteratorError5 = false;
+            var _iteratorError5 = undefined;
 
             try {
-                for (var _iterator6 = _getIterator(channels), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-                    var _parent = _step6.value;
+                for (var _iterator5 = _getIterator(channels), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+                    var _parent = _step5.value;
 
                     _parent.pipe(child);
                 }
             } catch (err) {
-                _didIteratorError6 = true;
-                _iteratorError6 = err;
+                _didIteratorError5 = true;
+                _iteratorError5 = err;
             } finally {
                 try {
-                    if (!_iteratorNormalCompletion6 && _iterator6['return']) {
-                        _iterator6['return']();
+                    if (!_iteratorNormalCompletion5 && _iterator5['return']) {
+                        _iterator5['return']();
                     }
                 } finally {
-                    if (_didIteratorError6) {
-                        throw _iteratorError6;
+                    if (_didIteratorError5) {
+                        throw _iteratorError5;
                     }
                 }
             }
@@ -861,55 +849,52 @@ var Channel = (function () {
                 channels[_key7 - 1] = arguments[_key7];
             }
 
-            var _iteratorNormalCompletion7 = true;
-            var _didIteratorError7 = false;
-            var _iteratorError7 = undefined;
+            var _iteratorNormalCompletion6 = true;
+            var _didIteratorError6 = false;
+            var _iteratorError6 = undefined;
 
             try {
-                for (var _iterator7 = _getIterator(_Array$entries(parent.pipeline)), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
-                    var _step7$value = _slicedToArray(_step7.value, 2);
+                for (var _iterator6 = _getIterator(_Array$entries(parent.pipeline)), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+                    var _step6$value = _slicedToArray(_step6.value, 2);
 
-                    var index = _step7$value[0];
-                    var pipe = _step7$value[1];
-                    var _iteratorNormalCompletion8 = true;
-                    var _didIteratorError8 = false;
-                    var _iteratorError8 = undefined;
+                    var index = _step6$value[0];
+                    var pipe = _step6$value[1];
+                    var _iteratorNormalCompletion7 = true;
+                    var _didIteratorError7 = false;
+                    var _iteratorError7 = undefined;
 
                     try {
-                        for (var _iterator8 = _getIterator(channels), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
-                            var ch2 = _step8.value;
+                        for (var _iterator7 = _getIterator(channels), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+                            var ch2 = _step7.value;
 
-                            if (pipe === ch2) {
-                                // optimize later
-                                parent.pipeline.splice(index, 1); // is this safe? multiple splices while iterating? seems scurry..
-                            }
+                            if (pipe === ch2) parent.pipeline.splice(index, 1);
                         }
                     } catch (err) {
-                        _didIteratorError8 = true;
-                        _iteratorError8 = err;
+                        _didIteratorError7 = true;
+                        _iteratorError7 = err;
                     } finally {
                         try {
-                            if (!_iteratorNormalCompletion8 && _iterator8['return']) {
-                                _iterator8['return']();
+                            if (!_iteratorNormalCompletion7 && _iterator7['return']) {
+                                _iterator7['return']();
                             }
                         } finally {
-                            if (_didIteratorError8) {
-                                throw _iteratorError8;
+                            if (_didIteratorError7) {
+                                throw _iteratorError7;
                             }
                         }
                     }
                 }
             } catch (err) {
-                _didIteratorError7 = true;
-                _iteratorError7 = err;
+                _didIteratorError6 = true;
+                _iteratorError6 = err;
             } finally {
                 try {
-                    if (!_iteratorNormalCompletion7 && _iterator7['return']) {
-                        _iterator7['return']();
+                    if (!_iteratorNormalCompletion6 && _iterator6['return']) {
+                        _iterator6['return']();
                     }
                 } finally {
-                    if (_didIteratorError7) {
-                        throw _iteratorError7;
+                    if (_didIteratorError6) {
+                        throw _iteratorError6;
                     }
                 }
             }
@@ -946,5 +931,3 @@ Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
 // unbreakable infinite loops with non async producers.
 
 /* eslint no-loop-func: 0 */
-
-// log(take[CHANNEL_SOURCE]);

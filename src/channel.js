@@ -130,6 +130,7 @@ export default class Channel {
         this.transform = transform;
         this.pipeline  = [];
         this.waiting   = [];
+        this.spaces    = []; // new name, if necessary
         this[STATE]    = STATES.OPEN;
     }
 
@@ -161,6 +162,23 @@ export default class Channel {
     }
 
     /*
+        Gets the length of the channel,
+        which is interpreted as the current length of the buffer
+        added to any puts which are waiting for space in the buffer.
+    */
+    get length() {
+        return this.buf.length + this.puts.length;
+    }
+
+    /*
+        Gets the size of the channel,
+        which is interpreted as the size of the buffer.
+    */
+    get size() {
+        return this.buf.size;
+    }
+
+    /*
         Marks a channel to no longer be writable.
 
         Accepts an optional boolean `all`, to signify
@@ -182,14 +200,6 @@ export default class Channel {
     close(all: Boolean = false) {
         Channel.close(this, all);
     }
-
-    // static destroy(ch: Channel) {
-    //     Channel.close(ch, true);
-    // }
-
-    // destroy() {
-    //     Channel.destroy(this);
-    // }
 
     /*
         Determines if a channel
@@ -218,14 +228,14 @@ export default class Channel {
                 return resolve(ACTIONS.DONE);
             ch.puts.push(() => {
                 val = ch.transform(val); // consider try/catch and exposing a stderr style channel
-                ch.buf.push(val); // need val to be scoped for later execution
+                if (typeof val !== 'undefined')
+                    ch.buf.push(val); // need val to be scoped for later execution
                 resolve();
             });
             if (!ch.buf.full())
                 ch.puts.shift()();
-            if (!ch.takes.empty()) {
+            if (!ch.takes.empty() && !ch.buf.empty())
                 ch.takes.shift()(shift(ch));
-            }
         });
     }
 
@@ -273,7 +283,7 @@ export default class Channel {
         CAREFUL WITH THIS.
         Right now, if we produce methods that can be run without any delay whatsoever,
         it is impossible to break out of the loop using regeneratorRuntime,
-        even if we await timeout() then close the channel -- the await timeout() will never be passed.
+        even if we await timeout() then close the channleimd b-- the await timeout() will never be passed.
     */
     static async produce(
           ch       : Channel
@@ -416,14 +426,7 @@ export default class Channel {
                     await* parent.pipeline.map(x => x.put(val));
                 }
             })();
-            parent[ACTIONS.CANCEL] = () => {
-                running = false;
-                // log(parent);
-                // log(parent.takes);
-                for (let take of parent.takes) {
-                    // log(take[CHANNEL_SOURCE]);
-                }
-            };
+            parent[ACTIONS.CANCEL] = () => { running = false; };
         }
         return channels[channels.length - 1];
     }
@@ -456,10 +459,8 @@ export default class Channel {
     static unpipe(parent: Channel, ...channels: Array<Channel>) {
         for (let [index, pipe] of Array.entries(parent.pipeline)) {
             for (let ch2 of channels) {
-                if (pipe === ch2) {
-                    // optimize later
-                    parent.pipeline.splice(index, 1); // is this safe? multiple splices while iterating? seems scurry..
-                }
+                if (pipe === ch2)
+                    parent.pipeline.splice(index, 1);
             }
         }
         if (parent.pipeline.length === 0 && parent[ACTIONS.CANCEL])

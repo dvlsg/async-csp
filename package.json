@@ -6,7 +6,7 @@
     "CSP",
     "communicating",
     "sequential",
-    "processes"
+    "processes",
     "channel",
     "pipe",
     "pipeline",

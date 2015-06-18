@@ -2,10 +2,15 @@
 
 const MAX_SIZE = 4096;
 
+// can be swapped to symbols to make more 'private'
+// makes it more difficult to debug, though.
+let ARR = '_arr';
+let SIZE = '_size';
+
 // internal to be inherited
 class Data {
     constructor() {
-        this._arr = [];
+        this[ARR] = [];
     }
 
     static construct() {
@@ -18,26 +23,26 @@ class Data {
     }
 
     [Symbol.iterator]() {
-        return this._arr[Symbol.iterator](); // should be overridden for stacks, so we iterate from back to front
+        return this[ARR][Symbol.iterator](); // should be overridden for stacks, so we iterate from back to front
     }
 
     flush() {
-        this._arr.length = 0;
+        this[ARR].length = 0;
     }
 
     empty() {
-        return this._arr.length === 0;
+        return this[ARR].length === 0;
     }
 
     get length() {
-        return this._arr.length;
+        return this[ARR].length;
     }
 
     toString() {
-        return this._arr.join(', ');
+        return this[ARR].join(', ');
     }
 }
-Data[Symbol.toStringTag] = 'Data';
+// Data[Symbol.toStringTag] = 'Data';
 
 export class Stack extends Data {
     constructor() {
@@ -49,23 +54,23 @@ export class Stack extends Data {
     }
 
     push(val) {
-        this._arr.push(val);
+        this[ARR].push(val);
     }
 
     pop() {
-        return this._arr.pop();
+        return this[ARR].pop();
     }
 
     peek() {
-        return this._arr[this.length - 1]; // super or `this`?
+        return this[ARR][this.length - 1]; // super or `this`?
     }
 }
-Stack[Symbol.toStringTag] = 'Stack';
+// Stack[Symbol.toStringTag] = 'Stack';
 
 export class FixedStack extends Stack {
     constructor(size = MAX_SIZE) {
         super();
-        this._size = size;
+        this[SIZE] = size;
     }
 
     get [Symbol.toStringTag]() {
@@ -73,7 +78,7 @@ export class FixedStack extends Stack {
     }
 
     get size() {
-        return this._size;
+        return this[SIZE];
     }
 
     push(val) {
@@ -82,10 +87,10 @@ export class FixedStack extends Stack {
     }
 
     full() {
-        return this.length >= this._size;
+        return this.length >= this[SIZE];
     }
 }
-FixedStack[Symbol.toStringTag] = 'FixedStack';
+// FixedStack[Symbol.toStringTag] = 'FixedStack';
 
 export class Queue extends Data {
     constructor() {
@@ -97,23 +102,23 @@ export class Queue extends Data {
     }
 
     push(val) {
-        this._arr.push(val);
+        this[ARR].push(val);
     }
 
     shift() {
-        return this._arr.shift();
+        return this[ARR].shift();
     }
 
     peek() {
-        return this._arr[0];
+        return this[ARR][0];
     }
 }
-Queue[Symbol.toStringTag] = 'Queue'; // cheats! this is so Object.prototype.toString.call(Queue) returns '[object Queue]' (as expected?)
+// Queue[Symbol.toStringTag] = 'Queue'; // cheats! this is so Object.prototype.toString.call(Queue) returns '[object Queue]' (as expected?)
 
 export class FixedQueue extends Queue {
     constructor(size = MAX_SIZE) {
         super();
-        this._size = size;
+        this[SIZE] = size;
     }
 
     get [Symbol.toStringTag]() {
@@ -121,7 +126,7 @@ export class FixedQueue extends Queue {
     }
 
     get size() {
-        return this._size;
+        return this[SIZE];
     }
 
     push(val) {
@@ -130,7 +135,7 @@ export class FixedQueue extends Queue {
     }
 
     full() {
-        return this.length >= this._size;
+        return this.length >= this[SIZE];
     }
 }
-FixedQueue[Symbol.toStringTag] = 'FixedQueue';
+// FixedQueue[Symbol.toStringTag] = 'FixedQueue';

@@ -7,26 +7,30 @@ let output = './write.sql';
 
 export async function run() {
 
-    let ch1 = new Channel(8, line => {
+    let makeArrays = new Channel(line => {
         line = line.trim();
-        if (!line)
-            return; // drop empty lines from the channels
-        return line.split(',').map(x => x.trim());
+        if (line) // drop empty lines from the channels
+            return line.split(',').map(x => x.trim());
     });
 
-    let ch2 = new Channel(8, row => {
+    let makeObjects = new Channel(row => {
         return {
-            id         : row[0],
-            first_name : row[1],
-            last_name  : row[2],
-            email      : row[3],
-            password   : row[4]
+            id          : row[0],
+            first_name  : row[1],
+            last_name   : row[2],
+            email       : row[3],
+            password    : row[4],
+            country     : row[5],
+            city        : row[6],
+            state       : row[7],
+            address     : row[8],
+            post_code   : row[9]
         };
     });
 
     let prepend = 'INSERT INTO people (import_id, first_name, last_name, email, password) VALUES (';
     let append = ')\n';
-    let ch3 = new Channel(8, obj => {
+    let makeStatements = new Channel(8, obj => {
         let out = [
             obj.id,
             `'${obj.first_name}'`,
@@ -37,18 +41,27 @@ export async function run() {
         return prepend + out.join(', ') + append;
     });
 
+    log(`Reading from ${input}...`);
     let fin = fs.createReadStream(input);
-    let fout = fs.createWriteStream(output);
 
+    let carry = null;
     fin.on('data', data => {
-        let rows = data.toString().split('\n');
-        for (let row of rows)
-            ch1.put(row);
+        let str = data.toString();
+        let lines = data.toString().split('\n');
+        if (carry)
+            lines[0] = carry + lines[0];
+        for (let i = 0; i < lines.length - 1; i++) {
+            let line = lines[i];
+            makeArrays.put(line);
+        }
+        carry = lines[lines.length - 1];
     });
     fin.on('end', () => {
-        ch1.close(true); // trigger a full pipe close when read stream ends
+        makeArrays.close(true); // trigger a full pipe close when read stream ends
     });
-    ch3.consume(async sql => {
+
+    let fout = fs.createWriteStream(output);
+    makeStatements.consume(async sql => {
         if (!fout.write(sql)) {
             await new Promise(resolve => {
                 fout.once('drain', resolve);
@@ -56,8 +69,7 @@ export async function run() {
         }
     });
 
-    log(`Reading from ${input}...`);
-    ch1.pipe(ch2).pipe(ch3);
-    await ch3.done();
+    makeArrays.pipe(makeObjects).pipe(makeStatements);
+    await makeStatements.done();
     log(`Wrote statements to ${output}!`);
 }

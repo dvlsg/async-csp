@@ -88,6 +88,25 @@ function finish(ch: Channel) {
         waiting();
 }
 
+/*
+    Refills the channel's buffer
+    with any available puts.
+*/
+function refill(ch: Channel) {
+    while (!ch.buf.full() && !ch.puts.empty())
+        ch.puts.shift()();
+}
+
+/*
+    Loops through and uses any
+    available takes on the channel
+    while buffer values are available.
+*/
+function spend(ch: Channel) {
+    while (!ch.takes.empty() && !ch.buf.empty())
+        ch.takes.shift()(shift(ch));
+}
+
 export function timeout(delay = 0) {
     return new Promise((resolve, reject) => {
         setTimeout(resolve, delay);
@@ -201,12 +220,12 @@ export default class Channel {
     */
     static close(ch: Channel, all: Boolean = false) {
         ch.state = STATES.CLOSED;
+        if (all)
+            ch[SHOULD_CLOSE] = true;
         if (ch.empty()) {
             flush(ch);
             finish(ch);
         }
-        if (all)
-            ch[SHOULD_CLOSE] = true;
     }
 
     /*
@@ -307,36 +326,9 @@ export default class Channel {
                     return resolve();
                 });
             }
-            ch.refill();
-            ch.spend();
+            refill(ch);
+            spend(ch);
         });
-    }
-
-    /*
-        Refills the buffer with any available puts.
-    */
-    static refill(ch: Channel) {
-        while (!ch.buf.full() && !ch.puts.empty())
-            ch.puts.shift()();
-    }
-
-    /*
-        Returns `Channel.refill` for `this`.
-    */
-    refill() {
-        return Channel.refill(this);
-    }
-
-    /*
-        Loops through and uses any available takes.
-    */
-    static spend(ch: Channel) {
-        while (!ch.takes.empty() && !ch.buf.empty())
-            ch.takes.shift()(shift(ch));
-    }
-
-    spend() {
-        return Channel.spend(this);
     }
 
     /*
@@ -356,15 +348,17 @@ export default class Channel {
         return new Promise((resolve) => {
             if (ch.state === STATES.ENDED)
                 return resolve(Channel.DONE);
-            ch.takes.push(x => resolve(x));
+            ch.takes.push(resolve);
             if (!ch.empty()) {
                 let val = shift(ch);
                 let take = ch.takes.shift();
                 take(val);
             }
-            if (ch.state === STATES.CLOSED) {
+            refill(ch);
+            spend(ch);
+            if (ch.empty() && ch.state === STATES.CLOSED) {
                 flush(ch);
-                finish(ch); // order?
+                finish(ch);
             }
         });
     }
@@ -398,7 +392,7 @@ export default class Channel {
                         // to prevent users from shooting themselves in the foot by causing
                         // unbreakable infinite loops with non async producers.
                         await timeout();
-                    let r = await ch.put(val);
+                    let r = await Channel.put(ch, val);
                     if (r === Channel.DONE)
                         break;
                 }
@@ -429,7 +423,7 @@ export default class Channel {
         let spin = true;
         (async() => {
             let val = null;
-            while ((val = await ch.take()) !== Channel.DONE) {
+            while ((val = await Channel.take(ch)) !== Channel.DONE) {
                 try {
                     await consumer(val);
                 }
@@ -480,7 +474,7 @@ export default class Channel {
     static pipeline(...functions) {
         let channels = [];
         for (let fn of functions)
-            channels.push(new Channel(1, fn));
+            channels.push(new Channel(fn));
         channels.reduce((x, y) => {
             return x.pipe(y);
         });
@@ -507,9 +501,7 @@ export default class Channel {
             let running = true;
             (async() => {
                 while (running) {
-                    let take = parent.take();
-                    take[CHANNEL_SOURCE] = parent;
-                    let val = await take;
+                    let val = await parent.take();
                     if (val === Channel.DONE) {
                         if (parent[SHOULD_CLOSE]) {
                             for (let channel of parent.pipeline)

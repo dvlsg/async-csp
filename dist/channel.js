@@ -132,6 +132,23 @@ function finish(ch) {
     }
 }
 
+/*
+    Refills the channel's buffer
+    with any available puts.
+*/
+function refill(ch) {
+    while (!ch.buf.full() && !ch.puts.empty()) ch.puts.shift()();
+}
+
+/*
+    Loops through and uses any
+    available takes on the channel
+    while buffer values are available.
+*/
+function spend(ch) {
+    while (!ch.takes.empty() && !ch.buf.empty()) ch.takes.shift()(shift(ch));
+}
+
 function timeout() {
     var delay = arguments[0] === undefined ? 0 : arguments[0];
 
@@ -197,20 +214,6 @@ var Channel = (function () {
         */
         value: function empty() {
             return Channel.empty(this);
-        }
-    }, {
-        key: 'refill',
-
-        /*
-            Returns `Channel.refill` for `this`.
-        */
-        value: function refill() {
-            return Channel.refill(this);
-        }
-    }, {
-        key: 'spend',
-        value: function spend() {
-            return Channel.spend(this);
         }
     }, {
         key: 'put',
@@ -382,11 +385,11 @@ var Channel = (function () {
             var all = arguments[1] === undefined ? false : arguments[1];
 
             ch.state = STATES.CLOSED;
+            if (all) ch[SHOULD_CLOSE] = true;
             if (ch.empty()) {
                 flush(ch);
                 finish(ch);
             }
-            if (all) ch[SHOULD_CLOSE] = true;
         }
     }, {
         key: 'empty',
@@ -507,27 +510,9 @@ var Channel = (function () {
                         return resolve();
                     });
                 }
-                ch.refill();
-                ch.spend();
+                refill(ch);
+                spend(ch);
             });
-        }
-    }, {
-        key: 'refill',
-
-        /*
-            Refills the buffer with any available puts.
-        */
-        value: function refill(ch) {
-            while (!ch.buf.full() && !ch.puts.empty()) ch.puts.shift()();
-        }
-    }, {
-        key: 'spend',
-
-        /*
-            Loops through and uses any available takes.
-        */
-        value: function spend(ch) {
-            while (!ch.takes.empty() && !ch.buf.empty()) ch.takes.shift()(shift(ch));
         }
     }, {
         key: 'take',
@@ -540,17 +525,17 @@ var Channel = (function () {
         value: function take(ch) {
             return new _Promise(function (resolve) {
                 if (ch.state === STATES.ENDED) return resolve(Channel.DONE);
-                ch.takes.push(function (x) {
-                    return resolve(x);
-                });
+                ch.takes.push(resolve);
                 if (!ch.empty()) {
                     var val = shift(ch);
                     var take = ch.takes.shift();
                     take(val);
                 }
-                if (ch.state === STATES.CLOSED) {
+                refill(ch);
+                spend(ch);
+                if (ch.empty() && ch.state === STATES.CLOSED) {
                     flush(ch);
-                    finish(ch); // order?
+                    finish(ch);
                 }
             });
         }
@@ -604,7 +589,7 @@ var Channel = (function () {
 
                                     case 11:
                                         context$3$0.next = 13;
-                                        return _regeneratorRuntime.awrap(ch.put(val));
+                                        return _regeneratorRuntime.awrap(Channel.put(ch, val));
 
                                     case 13:
                                         r = context$3$0.sent;
@@ -673,7 +658,7 @@ var Channel = (function () {
 
                                     case 1:
                                         context$3$0.next = 3;
-                                        return _regeneratorRuntime.awrap(ch.take());
+                                        return _regeneratorRuntime.awrap(Channel.take(ch));
 
                                     case 3:
                                         context$3$0.t0 = val = context$3$0.sent;
@@ -757,7 +742,7 @@ var Channel = (function () {
                 for (var _iterator4 = _getIterator(functions), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
                     var fn = _step4.value;
 
-                    channels.push(new Channel(1, fn));
+                    channels.push(new Channel(fn));
                 }
             } catch (err) {
                 _didIteratorError4 = true;
@@ -812,85 +797,82 @@ var Channel = (function () {
                             while (1) switch (context$4$0.prev = context$4$0.next) {
                                 case 0:
                                     _loop2 = function callee$4$0() {
-                                        var take, val, channel;
+                                        var val, channel;
                                         return _regeneratorRuntime.async(function callee$4$0$(context$5$0) {
                                             while (1) switch (context$5$0.prev = context$5$0.next) {
                                                 case 0:
-                                                    take = parent.take();
+                                                    context$5$0.next = 2;
+                                                    return _regeneratorRuntime.awrap(parent.take());
 
-                                                    take[CHANNEL_SOURCE] = parent;
-                                                    context$5$0.next = 4;
-                                                    return _regeneratorRuntime.awrap(take);
-
-                                                case 4:
+                                                case 2:
                                                     val = context$5$0.sent;
 
                                                     if (!(val === Channel.DONE)) {
-                                                        context$5$0.next = 27;
+                                                        context$5$0.next = 25;
                                                         break;
                                                     }
 
                                                     if (!parent[SHOULD_CLOSE]) {
-                                                        context$5$0.next = 26;
+                                                        context$5$0.next = 24;
                                                         break;
                                                     }
 
                                                     _iteratorNormalCompletion5 = true;
                                                     _didIteratorError5 = false;
                                                     _iteratorError5 = undefined;
-                                                    context$5$0.prev = 10;
+                                                    context$5$0.prev = 8;
 
                                                     for (_iterator5 = _getIterator(parent.pipeline); !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
                                                         channel = _step5.value;
 
                                                         channel.close(true);
-                                                    }context$5$0.next = 18;
+                                                    }context$5$0.next = 16;
                                                     break;
 
-                                                case 14:
-                                                    context$5$0.prev = 14;
-                                                    context$5$0.t0 = context$5$0['catch'](10);
+                                                case 12:
+                                                    context$5$0.prev = 12;
+                                                    context$5$0.t0 = context$5$0['catch'](8);
                                                     _didIteratorError5 = true;
                                                     _iteratorError5 = context$5$0.t0;
 
-                                                case 18:
-                                                    context$5$0.prev = 18;
-                                                    context$5$0.prev = 19;
+                                                case 16:
+                                                    context$5$0.prev = 16;
+                                                    context$5$0.prev = 17;
 
                                                     if (!_iteratorNormalCompletion5 && _iterator5['return']) {
                                                         _iterator5['return']();
                                                     }
 
-                                                case 21:
-                                                    context$5$0.prev = 21;
+                                                case 19:
+                                                    context$5$0.prev = 19;
 
                                                     if (!_didIteratorError5) {
-                                                        context$5$0.next = 24;
+                                                        context$5$0.next = 22;
                                                         break;
                                                     }
 
                                                     throw _iteratorError5;
 
+                                                case 22:
+                                                    return context$5$0.finish(19);
+
+                                                case 23:
+                                                    return context$5$0.finish(16);
+
                                                 case 24:
-                                                    return context$5$0.finish(21);
-
-                                                case 25:
-                                                    return context$5$0.finish(18);
-
-                                                case 26:
                                                     return context$5$0.abrupt('return', 'break');
 
-                                                case 27:
-                                                    context$5$0.next = 29;
+                                                case 25:
+                                                    context$5$0.next = 27;
                                                     return _regeneratorRuntime.awrap(_Promise.all(parent.pipeline.map(function (x) {
                                                         return x.put(val);
                                                     })));
 
-                                                case 29:
+                                                case 27:
                                                 case 'end':
                                                     return context$5$0.stop();
                                             }
-                                        }, null, _this3, [[10, 14, 18, 26], [19,, 21, 25]]);
+                                        }, null, _this3, [[8, 12, 16, 24], [17,, 19, 23]]);
                                     };
 
                                 case 1:

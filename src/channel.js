@@ -495,7 +495,7 @@ export default class Channel {
          do NOT bubble up to the user yet in nodejs.
          will be fixed in the future, supposedly).
     */
-    static pipe(parent: Channel, ...channels: Array<Channel>) : Channel {
+    static pipe(parent: Channel, ...channels: Array<Channel>) {
         parent.pipeline.push(...channels);
         if (!parent[ACTIONS.CANCEL]) {
             let running = true;
@@ -521,7 +521,7 @@ export default class Channel {
     /*
         Returns Channel.pipe for `this`, `...channels`.
     */
-    pipe(...channels: Array<Channel>) : Channel {
+    pipe(...channels: Array<Channel>) {
         return Channel.pipe(this, ...channels);
     }
 

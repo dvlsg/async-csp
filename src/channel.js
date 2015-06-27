@@ -121,8 +121,23 @@ export default class Channel {
 
         Accepts an optional size for the internal buffer,
         and an optional transform function to be used by the Channel.
+
+        Examples:
+            new Channel()            -> Default sized channel, no transform
+            new Channel(x => x*2)    -> Default sized channel, with transform
+            new Channel(8)           -> Specified sized channel, no transform
+            new Channel(8, x => x*2) -> Specified sized channel, with transform
     */
-    constructor(size: Number = Channel.DEFAULT_SIZE, transform: Function = x => x) {
+    constructor(... argv) {
+        let size = Channel.DEFAULT_SIZE;
+        let transform = x => x;
+        if (typeof argv[0] === 'function')
+            transform = argv[0];
+        if (typeof argv[0] === 'number') {
+            size = argv[0];
+            if (argv[1] && typeof argv[1] === 'function')
+                transform = argv[1];
+        }
         this.puts      = new Queue();
         this.takes     = new Queue();
         this.spacing   = new Queue();
@@ -143,7 +158,7 @@ export default class Channel {
         for (let val of iterable)
             ch.put(val);
         if (!keepOpen)
-            ch.close();
+            ch.close(true); // potentially breaking change
         return ch;
     }
 
@@ -226,13 +241,75 @@ export default class Channel {
         return new Promise((resolve) => {
             if (ch.state !== STATES.OPEN)
                 return resolve(ACTIONS.DONE);
-            ch.puts.push(() => {
-                val = ch.transform(val); // consider try/catch and exposing a stderr style channel
-                if (typeof val !== 'undefined')
-                    ch.buf.push(val); // need val to be scoped for later execution
-                resolve();
-            });
-            if (!ch.buf.full())
+
+            if (ch.transform && typeof ch.transform === 'function') {
+                if (ch.transform.length === 1) {
+                    // we have a transform with a callback length of 1
+                    // the user will have the option to return undefined (to drop)
+                    // or to return a transformed version of the value (to accept)
+                    ch.puts.push(() => {
+                        val = ch.transform(val);
+                        if (typeof val !== 'undefined')
+                            ch.buf.push(val); // need val to be scoped for later execution
+                        return resolve();
+                    });
+                }
+                else {
+                    // we have a transform with a callback length of 2
+                    // the user will be passed a method used to determine
+                    // whether or not values should be accepted by callback
+                    let accepted = [];
+                    ch.transform(val, acc => {
+                        if (typeof acc !== 'undefined')
+                            accepted.push(acc);
+                    });
+
+                    // once we have an array of accepted values from the user,
+                    // determine what exactly to do with them
+
+                    // no values accepted
+                    if (accepted.length === 0)
+                        return resolve();
+
+                    // only one value accepted, take the shortcut out
+                    else if (accepted.length === 1) {
+                        ch.puts.push(() => {
+                            ch.buf.push(accepted[0]);
+                            return resolve();
+                        });
+                    }
+
+                    // multiple values accepted
+                    else {
+                        // ch.buf.push(accepted.shift());
+                        let promises = [];
+                        for (let i = accepted.length - 1; i >= 0; i--) {
+                            let acc = accepted[i];
+                            let p = new Promise(res => {
+                                // what about the order here?
+                                // we have the items pushed to the back of the stack,
+                                // which probably isn't what we actually want.
+                                ch.puts.unshift(() => { // unshift is cheating. not a true queue anymore.
+                                    ch.buf.push(val);
+                                    return res();
+                                });
+                            });
+                            promises.push(p);
+                        }
+                        Promise.all(promises)
+                            .then(resolve)
+                            .catch(expose); // resolve the original
+                    }
+                }
+            }
+            else {
+                // no transform method available
+                ch.puts.push(() => {
+                    ch.buf.push(val);
+                    return resolve();
+                });
+            }
+            if (!ch.buf.full() && !ch.puts.empty())
                 ch.puts.shift()();
             if (!ch.takes.empty() && !ch.buf.empty())
                 ch.takes.shift()(shift(ch));
@@ -279,11 +356,6 @@ export default class Channel {
     /*
         Helper method for putting values onto a channel
         from a provided producer whenever there is space.
-
-        CAREFUL WITH THIS.
-        Right now, if we produce methods that can be run without any delay whatsoever,
-        it is impossible to break out of the loop using regeneratorRuntime,
-        even if we await timeout() then close the channleimd b-- the await timeout() will never be passed.
     */
     static async produce(
           ch       : Channel

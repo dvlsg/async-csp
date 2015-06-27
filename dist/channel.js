@@ -151,16 +151,29 @@ var Channel = (function () {
         Default constructor for a Channel.
          Accepts an optional size for the internal buffer,
         and an optional transform function to be used by the Channel.
+         Examples:
+            new Channel()            -> Default sized channel, no transform
+            new Channel(x => x*2)    -> Default sized channel, with transform
+            new Channel(8)           -> Specified sized channel, no transform
+            new Channel(8, x => x*2) -> Specified sized channel, with transform
     */
 
     function Channel() {
-        var size = arguments[0] === undefined ? Channel.DEFAULT_SIZE : arguments[0];
-        var transform = arguments[1] === undefined ? function (x) {
-            return x;
-        } : arguments[1];
+        for (var _len = arguments.length, argv = Array(_len), _key = 0; _key < _len; _key++) {
+            argv[_key] = arguments[_key];
+        }
 
         _classCallCheck(this, Channel);
 
+        var size = Channel.DEFAULT_SIZE;
+        var transform = function transform(x) {
+            return x;
+        };
+        if (typeof argv[0] === 'function') transform = argv[0];
+        if (typeof argv[0] === 'number') {
+            size = argv[0];
+            if (argv[1] && typeof argv[1] === 'function') transform = argv[1];
+        }
         this.puts = new _dataStructuresJs.Queue();
         this.takes = new _dataStructuresJs.Queue();
         this.spacing = new _dataStructuresJs.Queue();
@@ -246,8 +259,8 @@ var Channel = (function () {
             Returns Channel.pipe for `this`, `...channels`.
         */
         value: function pipe() {
-            for (var _len = arguments.length, channels = Array(_len), _key = 0; _key < _len; _key++) {
-                channels[_key] = arguments[_key];
+            for (var _len2 = arguments.length, channels = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+                channels[_key2] = arguments[_key2];
             }
 
             return Channel.pipe.apply(Channel, [this].concat(channels));
@@ -259,8 +272,8 @@ var Channel = (function () {
             Returns Channel.merge for `this`, `...channels`.
         */
         value: function merge() {
-            for (var _len2 = arguments.length, channels = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-                channels[_key2] = arguments[_key2];
+            for (var _len3 = arguments.length, channels = Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+                channels[_key3] = arguments[_key3];
             }
 
             return Channel.merge.apply(Channel, [this].concat(channels));
@@ -268,8 +281,8 @@ var Channel = (function () {
     }, {
         key: 'unpipe',
         value: function unpipe() {
-            for (var _len3 = arguments.length, channels = Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
-                channels[_key3] = arguments[_key3];
+            for (var _len4 = arguments.length, channels = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+                channels[_key4] = arguments[_key4];
             }
 
             return Channel.unpipe.apply(Channel, [this].concat(channels));
@@ -347,7 +360,7 @@ var Channel = (function () {
                 }
             }
 
-            if (!keepOpen) ch.close();
+            if (!keepOpen) ch.close(true); // potentially breaking change
             return ch;
         }
     }, {
@@ -389,12 +402,75 @@ var Channel = (function () {
         value: function put(ch, val) {
             return new _Promise(function (resolve) {
                 if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
-                ch.puts.push(function () {
-                    val = ch.transform(val); // consider try/catch and exposing a stderr style channel
-                    if (typeof val !== 'undefined') ch.buf.push(val); // need val to be scoped for later execution
-                    resolve();
-                });
-                if (!ch.buf.full()) ch.puts.shift()();
+
+                if (ch.transform && typeof ch.transform === 'function') {
+                    if (ch.transform.length === 1) {
+                        // we have a transform with a callback length of 1
+                        // the user will have the option to return undefined (to drop)
+                        // or to return a transformed version of the value (to accept)
+                        ch.puts.push(function () {
+                            val = ch.transform(val);
+                            if (typeof val !== 'undefined') ch.buf.push(val); // need val to be scoped for later execution
+                            return resolve();
+                        });
+                    } else {
+                        var _ret = (function () {
+                            // we have a transform with a callback length of 2
+                            // the user will be passed a method used to determine
+                            // whether or not values should be accepted by callback
+                            var accepted = [];
+                            ch.transform(val, function (acc) {
+                                if (typeof acc !== 'undefined') accepted.push(acc);
+                            });
+
+                            // once we have an array of accepted values from the user,
+                            // determine what exactly to do with them
+
+                            // no values accepted
+                            if (accepted.length === 0) return {
+                                    v: resolve()
+                                };
+
+                                // only one value accepted, take the shortcut out
+                            else if (accepted.length === 1) {
+                                ch.puts.push(function () {
+                                    ch.buf.push(accepted[0]);
+                                    return resolve();
+                                });
+                            }
+
+                            // multiple values accepted
+                            else {
+                                // ch.buf.push(accepted.shift());
+                                var promises = [];
+                                for (var i = accepted.length - 1; i >= 0; i--) {
+                                    var acc = accepted[i];
+                                    var p = new _Promise(function (res) {
+                                        // what about the order here?
+                                        // we have the items pushed to the back of the stack,
+                                        // which probably isn't what we actually want.
+                                        ch.puts.unshift(function () {
+                                            // unshift is cheating. not a true queue anymore.
+                                            ch.buf.push(val);
+                                            return res();
+                                        });
+                                    });
+                                    promises.push(p);
+                                }
+                                _Promise.all(promises).then(resolve)['catch'](expose); // resolve the original
+                            }
+                        })();
+
+                        if (typeof _ret === 'object') return _ret.v;
+                    }
+                } else {
+                    // no transform method available
+                    ch.puts.push(function () {
+                        ch.buf.push(val);
+                        return resolve();
+                    });
+                }
+                if (!ch.buf.full() && !ch.puts.empty()) ch.puts.shift()();
                 if (!ch.takes.empty() && !ch.buf.empty()) ch.takes.shift()(shift(ch));
             });
         }
@@ -429,10 +505,6 @@ var Channel = (function () {
         /*
             Helper method for putting values onto a channel
             from a provided producer whenever there is space.
-             CAREFUL WITH THIS.
-            Right now, if we produce methods that can be run without any delay whatsoever,
-            it is impossible to break out of the loop using regeneratorRuntime,
-            even if we await timeout() then close the channleimd b-- the await timeout() will never be passed.
         */
         value: function produce(ch, producer) {
             var spin;
@@ -616,8 +688,8 @@ var Channel = (function () {
             the first and the last channel.
         */
         value: function pipeline() {
-            for (var _len4 = arguments.length, functions = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-                functions[_key4] = arguments[_key4];
+            for (var _len5 = arguments.length, functions = Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
+                functions[_key5] = arguments[_key5];
             }
 
             var channels = [];
@@ -667,8 +739,8 @@ var Channel = (function () {
             var _parent$pipeline,
                 _this4 = this;
 
-            for (var _len5 = arguments.length, channels = Array(_len5 > 1 ? _len5 - 1 : 0), _key5 = 1; _key5 < _len5; _key5++) {
-                channels[_key5 - 1] = arguments[_key5];
+            for (var _len6 = arguments.length, channels = Array(_len6 > 1 ? _len6 - 1 : 0), _key6 = 1; _key6 < _len6; _key6++) {
+                channels[_key6 - 1] = arguments[_key6];
             }
 
             (_parent$pipeline = parent.pipeline).push.apply(_parent$pipeline, channels);
@@ -676,7 +748,7 @@ var Channel = (function () {
                 (function () {
                     var running = true;
                     (function callee$3$0() {
-                        var _loop, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, _ret2;
+                        var _loop, _iteratorNormalCompletion4, _didIteratorError4, _iteratorError4, _iterator4, _step4, _ret3;
 
                         return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
                             var _this3 = this;
@@ -775,9 +847,9 @@ var Channel = (function () {
                                     return _regeneratorRuntime.awrap(_loop());
 
                                 case 4:
-                                    _ret2 = context$4$0.sent;
+                                    _ret3 = context$4$0.sent;
 
-                                    if (!(_ret2 === 'break')) {
+                                    if (!(_ret3 === 'break')) {
                                         context$4$0.next = 7;
                                         break;
                                     }
@@ -808,8 +880,8 @@ var Channel = (function () {
             Pipes all provided channels into a new, single destination.
         */
         value: function merge() {
-            for (var _len6 = arguments.length, channels = Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
-                channels[_key6] = arguments[_key6];
+            for (var _len7 = arguments.length, channels = Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
+                channels[_key7] = arguments[_key7];
             }
 
             var child = new Channel();
@@ -845,8 +917,8 @@ var Channel = (function () {
 
         // UNTESTED. CARE.
         value: function unpipe(parent) {
-            for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
-                channels[_key7 - 1] = arguments[_key7];
+            for (var _len8 = arguments.length, channels = Array(_len8 > 1 ? _len8 - 1 : 0), _key8 = 1; _key8 < _len8; _key8++) {
+                channels[_key8 - 1] = arguments[_key8];
             }
 
             var _iteratorNormalCompletion6 = true;

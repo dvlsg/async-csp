@@ -175,6 +175,12 @@ var Queue = (function (_Data2) {
             this[ARR].push(val);
         }
     }, {
+        key: 'unshift',
+        value: function unshift(val) {
+            // cheating! so much cheating!
+            this[ARR].unshift(val);
+        }
+    }, {
         key: 'shift',
         value: function shift() {
             return this[ARR].shift();

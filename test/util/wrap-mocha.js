@@ -8,7 +8,7 @@ if (!wrapped && GLOBAL.it) { // better check to see if mocha is included?
     mocha.beforeEach = GLOBAL.beforeEach;
     mocha.afterEach  = GLOBAL.afterEach;
 
-    for(let [key, val] of Object.entries(mocha)) {
+    for (let [key, val] of Object.entries(mocha)) {
         GLOBAL[key] = async(...args) => {
             let last = args[args.length - 1];
             if (last instanceof Function) {

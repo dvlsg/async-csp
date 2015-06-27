@@ -4,16 +4,6 @@ import assert from 'zana-assert';
 import wrapMocha from './util/wrap-mocha.js'; // executes automatically
 let log = console.log.bind(console);
 
-async function run(callback, done) {
-    try {
-        await callback();
-        return done();
-    }
-    catch(e) {
-        return done(e);
-    }
-}
-
 describe('Channel', () => {
 
     describe('constructor', () => {
@@ -54,6 +44,14 @@ describe('Channel', () => {
         });
 
         it('should initialize with a transform', async() => {
+            let ch = new Channel(x => x**2);
+            for (let i = 0; i < 4; i++)
+                await ch.put(i);
+            for (let i = 0; i < 4; i++)
+                assert.equal(await ch.take(), i**2);
+        });
+
+        it('should initialize with a buffer size and a transform', async() => {
             let ch = new Channel(3, x => ({x}));
             for (let i = 0; i < 3; i++)
                 await ch.put(i);
@@ -166,6 +164,8 @@ describe('Channel', () => {
             assert.equal(ch.buf.length, 1);
             assert.true(ch.puts.empty());
         });
+
+        it('should execute any available transform');
 
         it('should put values in order', async() => {
             let ch = new Channel(8);
@@ -729,6 +729,47 @@ describe('Channel', () => {
         });
     });
 
+    describe('transform', () => {
+
+        xit('will have specific tests defined', async() => {
+            let ch = new Channel((val, accept) => {
+                if (val > 2) {
+                    accept(val);
+                    // accept(val);
+                    // accept(val);
+                    // accept(val);
+                }
+            });
+            // await ch.put(1); // ignored
+            // await ch.put(2); // ignored
+            // await ch.put(3);
+            // await ch.put(4);
+            // assert.equal(await ch.take(), 3);
+            // assert.equal(await ch.take(), 6);
+            // assert.equal(await ch.take(), 4);
+            // assert.equal(await ch.take(), 8);
+
+            (async() => {
+                await ch.put(1);
+                await ch.put(3);
+                await timeout(0);
+                await ch.put(5);
+            })();
+            (async() => {
+                await ch.put(2);
+                await ch.put(4);
+                await ch.put(6);
+            })();
+            ch.consume(async x => {
+                log(x);
+            });
+            await timeout(50);
+            ch.close(true);
+            await ch.done();
+        });
+
+    });
+
     describe('general use', () => {
 
         it('should not block indefinitely with synchronous produce + consume', async() => {
@@ -741,5 +782,11 @@ describe('Channel', () => {
             assert.true(ch.empty());
             assert.equal(ch.state, STATES.ENDED);
         });
+    });
+
+    describe('performance', () => {
+
+        it('will be defined');
+
     });
 });

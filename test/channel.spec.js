@@ -165,7 +165,16 @@ describe('Channel', () => {
             assert.true(ch.puts.empty());
         });
 
-        it('should execute any available transform');
+        it('should execute any available transform', async() => {
+            let ch = new Channel(x => x**2);
+            for (let val of [1, 2, 3, 4, 5])
+                await ch.put(val);
+            assert.equal(await ch.take(), 1);
+            assert.equal(await ch.take(), 4);
+            assert.equal(await ch.take(), 9);
+            assert.equal(await ch.take(), 16);
+            assert.equal(await ch.take(), 25);
+        });
 
         it('should put values in order', async() => {
             let ch = new Channel(8);
@@ -731,41 +740,83 @@ describe('Channel', () => {
 
     describe('transform', () => {
 
-        xit('will have specific tests defined', async() => {
-            let ch = new Channel((val, accept) => {
-                if (val > 2) {
-                    accept(val);
-                    // accept(val);
-                    // accept(val);
-                    // accept(val);
+        it('should transform values', async() => {
+            let ch = new Channel(x => x**2);
+            for (let i = 1; i <= 4; i++)
+                await ch.put(i);
+            for (let i = 0; i < 4; i++)
+                assert.equal(await ch.take(), (i + 1) ** 2);
+        });
+
+        it('should drop undefined values', async() => {
+            let ch = new Channel(x => {
+                if (x > 2)
+                    return x;
+            });
+            await ch.put(1);
+            await ch.put(1);
+            await ch.put(3);
+            await ch.put(4);
+            assert.equal(await ch.take(), 3);
+            assert.equal(await ch.take(), 4);
+            assert.empty(ch);
+        });
+
+        it('should transform values by callback', async() => {
+            let ch = new Channel((x, accept) => {
+                if (x > 2)
+                    accept(x);
+            });
+            await ch.put(1);
+            await ch.put(2);
+            await ch.put(3);
+            await ch.put(4);
+            assert.equal(await ch.take(), 3);
+            assert.equal(await ch.take(), 4);
+            assert.empty(ch);
+        });
+
+        it('should expand values by multiple callbacks', async() => {
+            let ch = new Channel(20, (x, accept) => {
+                if (x > 2) {
+                    accept(x);
+                    accept(x);
                 }
             });
-            // await ch.put(1); // ignored
-            // await ch.put(2); // ignored
-            // await ch.put(3);
-            // await ch.put(4);
-            // assert.equal(await ch.take(), 3);
-            // assert.equal(await ch.take(), 6);
-            // assert.equal(await ch.take(), 4);
-            // assert.equal(await ch.take(), 8);
+            await ch.put(1);
+            await ch.put(2);
+            await ch.put(3);
+            await ch.put(4);
+            assert.equal(await ch.take(), 3);
+            assert.equal(await ch.take(), 3);
+            assert.equal(await ch.take(), 4);
+            assert.equal(await ch.take(), 4);
+            assert.empty(ch);
+        });
 
-            (async() => {
-                await ch.put(1);
-                await ch.put(3);
-                await timeout(0);
-                await ch.put(5);
-            })();
-            (async() => {
-                await ch.put(2);
-                await ch.put(4);
-                await ch.put(6);
-            })();
-            ch.consume(async x => {
-                log(x);
+        it('should maintain order with multiple callback transforms', async() => {
+            let ch = new Channel(2, (val, accept) => {
+                if (val > 2) {
+                    accept(val);
+                    accept(val*2);
+                    accept(val*3);
+                }
             });
-            await timeout(50);
+
+            let arr = [];
+            ch.consume(async x => {
+                arr.push(x);
+            });
+            await ch.put(1);
+            await ch.put(2);
+            await ch.put(3);
+            await ch.put(4);
+            await ch.put(5);
+            await ch.put(6);
+            await timeout();
             ch.close(true);
             await ch.done();
+            assert.equal(arr, [3, 6, 9, 4, 8, 12, 5, 10, 15, 6, 12, 18]);
         });
 
     });
@@ -784,9 +835,4 @@ describe('Channel', () => {
         });
     });
 
-    describe('performance', () => {
-
-        it('will be defined');
-
-    });
 });

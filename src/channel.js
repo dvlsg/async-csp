@@ -267,30 +267,28 @@ export default class Channel {
                     // once we have an array of accepted values from the user,
                     // determine what exactly to do with them
 
-                    // no values accepted
-                    if (accepted.length === 0)
+                    if (accepted.length === 0) {
+                        // no values accepted
                         return resolve();
-
-                    // only one value accepted, take the shortcut out
+                    }
                     else if (accepted.length === 1) {
+                        // only one value accepted, take the shortcut out
                         ch.puts.push(() => {
                             ch.buf.push(accepted[0]);
                             return resolve();
                         });
                     }
-
-                    // multiple values accepted
                     else {
-                        // ch.buf.push(accepted.shift());
+                        // multiple values accepted, gets
+                        // resolve the original put promise
+                        // only when all of the expanded puts
+                        // have been properly consumed by takes
+                        // log('accepting:', accepted);
                         let promises = [];
-                        for (let i = accepted.length - 1; i >= 0; i--) {
-                            let acc = accepted[i];
+                        for (let acc of accepted) {
                             let p = new Promise(res => {
-                                // what about the order here?
-                                // we have the items pushed to the back of the stack,
-                                // which probably isn't what we actually want.
-                                ch.puts.unshift(() => { // unshift is cheating. not a true queue anymore.
-                                    ch.buf.push(val);
+                                ch.puts.push(() => {
+                                    ch.buf.push(acc);
                                     return res();
                                 });
                             });
@@ -309,11 +307,36 @@ export default class Channel {
                     return resolve();
                 });
             }
-            if (!ch.buf.full() && !ch.puts.empty())
-                ch.puts.shift()();
-            if (!ch.takes.empty() && !ch.buf.empty())
-                ch.takes.shift()(shift(ch));
+            ch.refill();
+            ch.spend();
         });
+    }
+
+    /*
+        Refills the buffer with any available puts.
+    */
+    static refill(ch: Channel) {
+        while (!ch.buf.full() && !ch.puts.empty())
+            ch.puts.shift()();
+    }
+
+    /*
+        Returns `Channel.refill` for `this`.
+    */
+    refill() {
+        return Channel.refill(this);
+    }
+
+    /*
+        Loops through and uses any available takes.
+    */
+    static spend(ch: Channel) {
+        while (!ch.takes.empty() && !ch.buf.empty())
+            ch.takes.shift()(shift(ch));
+    }
+
+    spend() {
+        return Channel.spend(this);
     }
 
     /*

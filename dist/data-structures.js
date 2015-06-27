@@ -8,8 +8,6 @@ var _inherits = require('babel-runtime/helpers/inherits')['default'];
 
 var _get = require('babel-runtime/helpers/get')['default'];
 
-var _Object$defineProperty = require('babel-runtime/core-js/object/define-property')['default'];
-
 var _Symbol$iterator = require('babel-runtime/core-js/symbol/iterator')['default'];
 
 var _getIterator = require('babel-runtime/core-js/get-iterator')['default'];
@@ -18,10 +16,9 @@ var _Symbol$toStringTag = require('babel-runtime/core-js/symbol/to-string-tag')[
 
 var _Object$create = require('babel-runtime/core-js/object/create')['default'];
 
-_Object$defineProperty(exports, '__esModule', {
+Object.defineProperty(exports, '__esModule', {
     value: true
 });
-
 var MAX_SIZE = 4096;
 
 // can be swapped to symbols to make more 'private'
@@ -40,7 +37,7 @@ var Data = (function () {
 
     _createClass(Data, [{
         key: _Symbol$iterator,
-        value: function () {
+        value: function value() {
             return _getIterator(this[ARR]); // should be overridden for stacks, so we iterate from back to front
         }
     }, {
@@ -60,12 +57,12 @@ var Data = (function () {
         }
     }, {
         key: _Symbol$toStringTag,
-        get: function () {
+        get: function get() {
             return 'Data';
         }
     }, {
         key: 'length',
-        get: function () {
+        get: function get() {
             return this[ARR].length;
         }
     }], [{
@@ -107,7 +104,7 @@ var Stack = (function (_Data) {
         }
     }, {
         key: _Symbol$toStringTag,
-        get: function () {
+        get: function get() {
             return 'Stack';
         }
     }]);
@@ -143,12 +140,12 @@ var FixedStack = (function (_Stack) {
         }
     }, {
         key: _Symbol$toStringTag,
-        get: function () {
+        get: function get() {
             return 'FixedStack';
         }
     }, {
         key: 'size',
-        get: function () {
+        get: function get() {
             return this[SIZE];
         }
     }]);
@@ -175,12 +172,6 @@ var Queue = (function (_Data2) {
             this[ARR].push(val);
         }
     }, {
-        key: 'unshift',
-        value: function unshift(val) {
-            // cheating! so much cheating!
-            this[ARR].unshift(val);
-        }
-    }, {
         key: 'shift',
         value: function shift() {
             return this[ARR].shift();
@@ -192,7 +183,7 @@ var Queue = (function (_Data2) {
         }
     }, {
         key: _Symbol$toStringTag,
-        get: function () {
+        get: function get() {
             return 'Queue';
         }
     }]);
@@ -229,12 +220,12 @@ var FixedQueue = (function (_Queue) {
         }
     }, {
         key: _Symbol$toStringTag,
-        get: function () {
+        get: function get() {
             return 'FixedQueue';
         }
     }, {
         key: 'size',
-        get: function () {
+        get: function get() {
             return this[SIZE];
         }
     }]);

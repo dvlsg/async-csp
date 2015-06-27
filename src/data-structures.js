@@ -105,11 +105,6 @@ export class Queue extends Data {
         this[ARR].push(val);
     }
 
-    unshift(val) {
-        // cheating! so much cheating!
-        this[ARR].unshift(val);
-    }
-
     shift() {
         return this[ARR].shift();
     }

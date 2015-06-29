@@ -29,7 +29,7 @@ describe('Channel', () => {
 
             assert.exists(ch.pipeline);
             assert.empty(ch.pipeline);
-            assert.is(ch.pipeline, Array); // need to use prototype with is and standard objects, since Array is of type Function
+            assert.is(ch.pipeline, Array);
 
             assert.exists(ch.waiting);
             assert.empty(ch.waiting);
@@ -833,6 +833,7 @@ describe('Channel', () => {
             assert.true(ch.empty());
             assert.equal(ch.state, STATES.ENDED);
         });
+        
     });
 
 });

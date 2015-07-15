@@ -29,6 +29,7 @@ export const ACTIONS = {
 const SHOULD_CLOSE = Symbol('channel_should_close');
 const CHANNEL_SOURCE = Symbol('channel_source');
 const IS_PIPED = Symbol('channel_piped'); // TBD -- do we need this?
+const IS_CONSUMING = Symbol('channel_consuming');
 
 /*
     Error expose method to assist with ensuring
@@ -64,6 +65,16 @@ function shift(ch: Channel) {
 }
 
 /*
+    Marks a channel as ended, and signals any promises
+    which are waiting for the end of the channel.
+*/
+function finish(ch: Channel) {
+    ch.state = STATES.ENDED;
+    for (let waiting of ch.waiting)
+        setImmediate(waiting);
+}
+
+/*
     Flushes out any remaining takes from the channel
     by sending them the value of `ACTIONS.DONE`.
 */
@@ -72,20 +83,15 @@ function flush(ch: Channel) {
         // this error is never expected to be thrown
         // just a sanity check during development
         throw new Error('Attempted to execute flush(Channel) on a non-empty channel!');
-
-    let take = null;
+    let take, takes = [];
     while (take = ch.takes.shift())
-        take(ACTIONS.DONE);
-}
-
-/*
-    Marks a channel as ended, and signals any promises
-    which are waiting for the end of the channel.
-*/
-function finish(ch: Channel) {
-    ch.state = STATES.ENDED;
-    for (let waiting of ch.waiting)
-        waiting();
+        takes.push(take(ACTIONS.DONE));
+    Promise.all(takes).then(() => {
+        // silly compatibility stuff with Channel.consume()
+        // up for refactor in the future, but works for now.
+        if (!ch[IS_CONSUMING])
+            return finish(ch);
+    });
 }
 
 /*
@@ -222,10 +228,8 @@ export default class Channel {
         ch.state = STATES.CLOSED;
         if (all)
             ch[SHOULD_CLOSE] = true;
-        if (ch.empty()) {
+        if (ch.empty())
             flush(ch);
-            finish(ch);
-        }
     }
 
     /*
@@ -257,10 +261,9 @@ export default class Channel {
         onto Channel.puts to be resolved when buffer space is available.
     */
     static put(ch: Channel, val: any) {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             if (ch.state !== STATES.OPEN)
                 return resolve(ACTIONS.DONE);
-
             if (ch.transform && typeof ch.transform === 'function') {
                 if (ch.transform.length === 1) {
                     // we have a transform with a callback length of 1
@@ -272,50 +275,74 @@ export default class Channel {
                             ch.buf.push(val); // need val to be scoped for later execution
                         return resolve();
                     });
+                    refill(ch);
+                    spend(ch);
                 }
                 else {
-                    // we have a transform with a callback length of 2
-                    // the user will be passed a method used to determine
-                    // whether or not values should be accepted by callback
                     let accepted = [];
-                    ch.transform(val, acc => {
-                        if (typeof acc !== 'undefined')
-                            accepted.push(acc);
-                    });
-
-                    // once we have an array of accepted values from the user,
-                    // determine what exactly to do with them
-
-                    if (accepted.length === 0) {
-                        // no values accepted
-                        return resolve();
-                    }
-                    else if (accepted.length === 1) {
-                        // only one value accepted, take the shortcut out
-                        ch.puts.push(() => {
-                            ch.buf.push(accepted[0]);
-                            return resolve();
-                        });
-                    }
-                    else {
-                        // multiple values accepted, gets
-                        // resolve the original put promise
-                        // only when all of the expanded puts
-                        // have been properly consumed by takes
-                        // log('accepting:', accepted);
-                        let promises = [];
-                        for (let acc of accepted) {
-                            let p = new Promise(res => {
-                                ch.puts.push(() => {
-                                    ch.buf.push(acc);
-                                    return res();
-                                });
-                            });
-                            promises.push(p);
+                    let done = (err) => {
+                        if (err)
+                            return reject(err);
+                        if (accepted.length === 0) {
+                            // no values accepted
+                            resolve();
                         }
-                        Promise.all(promises)
-                            .then(resolve)
-                            .catch(expose); // resolve the original
+                        else if (accepted.length === 1) {
+                            // only one value accepted, take the shortcut out
+                            ch.puts.push(() => {
+                                ch.buf.push(accepted[0]);
+                                resolve();
+                            });
+                        }
+                        else {
+                            // multiple values accepted, gets
+                            // resolve the original put promise
+                            // only when all of the expanded puts
+                            // have been properly consumed by takes
+                            // log('accepting:', accepted);
+                            let promises = [];
+                            for (let acc of accepted) {
+                                let p = new Promise(res => {
+                                    ch.puts.push(() => {
+                                        ch.buf.push(acc);
+                                        res();
+                                    });
+                                });
+                                promises.push(p);
+                            }
+                            Promise.all(promises)
+                                .then(resolve)
+                                .catch(expose); // resolve the original
+                        }
+                        refill(ch);
+                        spend(ch);
+                    };
+
+
+                    // synchronous transform with a "push" callback,
+                    // to be used in order to expand a single value into multiples
+                    if (ch.transform.length === 2) {
+                        try {
+                            ch.transform(val, acc => {
+                                if (typeof acc !== 'undefined')
+                                    accepted.push(acc);
+                            });
+                            done();
+                        }
+                        catch(e) {
+                            return done(e);
+                        }
+                    }
+
+                    // asynchronous transform with a "push" callback,
+                    // as well as a "done" callback,
+                    // to be able to push values onto the channel
+                    // asynchronously from a transform method
+                    else {
+                        ch.transform(val, acc => {
+                            if (typeof acc !== 'undefined')
+                                accepted.push(acc);
+                        }, done);
                     }
                 }
             }
@@ -325,9 +352,9 @@ export default class Channel {
                     ch.buf.push(val);
                     return resolve();
                 });
+                refill(ch);
+                spend(ch);
             }
-            refill(ch);
-            spend(ch);
         });
     }
 
@@ -356,10 +383,8 @@ export default class Channel {
             }
             refill(ch);
             spend(ch);
-            if (ch.empty() && ch.state === STATES.CLOSED) {
+            if (ch.empty() && ch.state === STATES.CLOSED)
                 flush(ch);
-                finish(ch);
-            }
         });
     }
 
@@ -420,7 +445,7 @@ export default class Channel {
         , consumer : Function = () => {} // noop default
     ): Function
     {
-        let spin = true;
+        ch[IS_CONSUMING] = true;
         (async() => {
             let val = null;
             while ((val = await Channel.take(ch)) !== Channel.DONE) {
@@ -431,8 +456,14 @@ export default class Channel {
                     expose(e);
                 }
             }
+            // can we signal that the consumer is finally done, at this point?
+            // so that Channel.done() waits until consumers are fully completed?
+
+            // kind of a silly setup, but this is functional against unit tests.
+            // refactor into something a little more intuitive at some point.
+            ch[IS_CONSUMING] = false;
+            finish(ch);
         })();
-        return () => { spin = false; };
     }
 
     /*

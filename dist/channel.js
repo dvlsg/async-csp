@@ -6,6 +6,8 @@ var _classCallCheck = require('babel-runtime/helpers/class-call-check')['default
 
 var _slicedToArray = require('babel-runtime/helpers/sliced-to-array')['default'];
 
+var _Object$defineProperty = require('babel-runtime/core-js/object/define-property')['default'];
+
 var _Symbol = require('babel-runtime/core-js/symbol')['default'];
 
 var _getIterator = require('babel-runtime/core-js/get-iterator')['default'];
@@ -16,9 +18,10 @@ var _regeneratorRuntime = require('babel-runtime/regenerator')['default'];
 
 var _Array$entries = require('babel-runtime/core-js/array/entries')['default'];
 
-Object.defineProperty(exports, '__esModule', {
+_Object$defineProperty(exports, '__esModule', {
     value: true
 });
+
 exports.timeout = timeout;
 /* eslint no-cond-assign: 0 */ // intentional while loop assign in flush
 /* eslint no-unused-vars: 0 */ // so we can have log, even when not using it
@@ -52,6 +55,7 @@ exports.ACTIONS = ACTIONS;
 var SHOULD_CLOSE = _Symbol('channel_should_close');
 var CHANNEL_SOURCE = _Symbol('channel_source');
 var IS_PIPED = _Symbol('channel_piped'); // TBD -- do we need this?
+var IS_CONSUMING = _Symbol('channel_consuming');
 
 /*
     Error expose method to assist with ensuring
@@ -87,20 +91,6 @@ function shift(ch) {
 }
 
 /*
-    Flushes out any remaining takes from the channel
-    by sending them the value of `ACTIONS.DONE`.
-*/
-function flush(ch) {
-    if (!ch.empty())
-        // this error is never expected to be thrown
-        // just a sanity check during development
-        throw new Error('Attempted to execute flush(Channel) on a non-empty channel!');
-
-    var take = null;
-    while (take = ch.takes.shift()) take(ACTIONS.DONE);
-}
-
-/*
     Marks a channel as ended, and signals any promises
     which are waiting for the end of the channel.
 */
@@ -114,7 +104,7 @@ function finish(ch) {
         for (var _iterator = _getIterator(ch.waiting), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
             var _waiting = _step.value;
 
-            _waiting();
+            setImmediate(_waiting);
         }
     } catch (err) {
         _didIteratorError = true;
@@ -130,6 +120,25 @@ function finish(ch) {
             }
         }
     }
+}
+
+/*
+    Flushes out any remaining takes from the channel
+    by sending them the value of `ACTIONS.DONE`.
+*/
+function flush(ch) {
+    if (!ch.empty())
+        // this error is never expected to be thrown
+        // just a sanity check during development
+        throw new Error('Attempted to execute flush(Channel) on a non-empty channel!');
+    var take = undefined,
+        takes = [];
+    while (take = ch.takes.shift()) takes.push(take(ACTIONS.DONE));
+    _Promise.all(takes).then(function () {
+        // silly compatibility stuff with Channel.consume()
+        // up for refactor in the future, but works for now.
+        if (!ch[IS_CONSUMING]) return finish(ch);
+    });
 }
 
 /*
@@ -163,9 +172,9 @@ var Channel = (function () {
 
     /*
         Default constructor for a Channel.
-          Accepts an optional size for the internal buffer,
+         Accepts an optional size for the internal buffer,
         and an optional transform function to be used by the Channel.
-          Examples:
+         Examples:
             new Channel()            -> Default sized channel, no transform
             new Channel(x => x*2)    -> Default sized channel, with transform
             new Channel(8)           -> Specified sized channel, no transform
@@ -173,16 +182,20 @@ var Channel = (function () {
     */
 
     function Channel() {
+        for (var _len = arguments.length, argv = Array(_len), _key = 0; _key < _len; _key++) {
+            argv[_key] = arguments[_key];
+        }
+
         _classCallCheck(this, Channel);
 
         var size = Channel.DEFAULT_SIZE;
         var transform = function transform(x) {
             return x;
         };
-        if (typeof arguments[0] === 'function') transform = arguments[0];
-        if (typeof arguments[0] === 'number') {
-            size = arguments[0];
-            if (arguments[1] && typeof arguments[1] === 'function') transform = arguments[1];
+        if (typeof argv[0] === 'function') transform = argv[0];
+        if (typeof argv[0] === 'number') {
+            size = argv[0];
+            if (argv[1] && typeof argv[1] === 'function') transform = argv[1];
         }
         this.puts = new _dataStructuresJs.Queue();
         this.takes = new _dataStructuresJs.Queue();
@@ -269,8 +282,8 @@ var Channel = (function () {
             Returns Channel.pipe for `this`, `...channels`.
         */
         value: function pipe() {
-            for (var _len = arguments.length, channels = Array(_len), _key = 0; _key < _len; _key++) {
-                channels[_key] = arguments[_key];
+            for (var _len2 = arguments.length, channels = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+                channels[_key2] = arguments[_key2];
             }
 
             return Channel.pipe.apply(Channel, [this].concat(channels));
@@ -282,8 +295,8 @@ var Channel = (function () {
             Returns Channel.merge for `this`, `...channels`.
         */
         value: function merge() {
-            for (var _len2 = arguments.length, channels = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-                channels[_key2] = arguments[_key2];
+            for (var _len3 = arguments.length, channels = Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+                channels[_key3] = arguments[_key3];
             }
 
             return Channel.merge.apply(Channel, [this].concat(channels));
@@ -291,8 +304,8 @@ var Channel = (function () {
     }, {
         key: 'unpipe',
         value: function unpipe() {
-            for (var _len3 = arguments.length, channels = Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
-                channels[_key3] = arguments[_key3];
+            for (var _len4 = arguments.length, channels = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+                channels[_key4] = arguments[_key4];
             }
 
             return Channel.unpipe.apply(Channel, [this].concat(channels));
@@ -303,14 +316,14 @@ var Channel = (function () {
         /*
             Sets the state of the channel.
         */
-        set: function set(val) {
+        set: function (val) {
             this[STATE] = val;
         },
 
         /*
             Gets the state of the channel.
         */
-        get: function get() {
+        get: function () {
             return this[STATE];
         }
     }, {
@@ -321,7 +334,7 @@ var Channel = (function () {
             which is interpreted as the current length of the buffer
             added to any puts which are waiting for space in the buffer.
         */
-        get: function get() {
+        get: function () {
             return this.buf.length + this.puts.length;
         }
     }, {
@@ -331,7 +344,7 @@ var Channel = (function () {
             Gets the size of the channel,
             which is interpreted as the size of the buffer.
         */
-        get: function get() {
+        get: function () {
             return this.buf.size;
         }
     }], [{
@@ -378,7 +391,7 @@ var Channel = (function () {
 
         /*
             Marks a channel to no longer be writable.
-              Accepts an optional boolean `all`, to signify
+             Accepts an optional boolean `all`, to signify
             whether or not to close the entire pipeline.
         */
         value: function close(ch) {
@@ -386,10 +399,7 @@ var Channel = (function () {
 
             ch.state = STATES.CLOSED;
             if (all) ch[SHOULD_CLOSE] = true;
-            if (ch.empty()) {
-                flush(ch);
-                finish(ch);
-            }
+            if (ch.empty()) flush(ch);
         }
     }, {
         key: 'empty',
@@ -406,13 +416,12 @@ var Channel = (function () {
 
         /*
             Places a new value onto the provided channel.
-              If the buffer is full, the promise will be pushed
+             If the buffer is full, the promise will be pushed
             onto Channel.puts to be resolved when buffer space is available.
         */
         value: function put(ch, val) {
-            return new _Promise(function (resolve) {
+            return new _Promise(function (resolve, reject) {
                 if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
-
                 if (ch.transform && typeof ch.transform === 'function') {
                     if (ch.transform.length === 1) {
                         // we have a transform with a callback length of 1
@@ -423,81 +432,93 @@ var Channel = (function () {
                             if (typeof val !== 'undefined') ch.buf.push(val); // need val to be scoped for later execution
                             return resolve();
                         });
+                        refill(ch);
+                        spend(ch);
                     } else {
-                        var _iteratorNormalCompletion3;
-
-                        var _didIteratorError3;
-
-                        var _iteratorError3;
-
-                        var _iterator3, _step3;
-
                         var _ret = (function () {
-                            // we have a transform with a callback length of 2
-                            // the user will be passed a method used to determine
-                            // whether or not values should be accepted by callback
                             var accepted = [];
-                            ch.transform(val, function (acc) {
-                                if (typeof acc !== 'undefined') accepted.push(acc);
-                            });
+                            var done = function done(err) {
+                                if (err) return reject(err);
+                                if (accepted.length === 0) {
+                                    // no values accepted
+                                    resolve();
+                                } else if (accepted.length === 1) {
+                                    // only one value accepted, take the shortcut out
+                                    ch.puts.push(function () {
+                                        ch.buf.push(accepted[0]);
+                                        resolve();
+                                    });
+                                } else {
+                                    // multiple values accepted, gets
+                                    // resolve the original put promise
+                                    // only when all of the expanded puts
+                                    // have been properly consumed by takes
+                                    // log('accepting:', accepted);
+                                    var promises = [];
+                                    var _iteratorNormalCompletion3 = true;
+                                    var _didIteratorError3 = false;
+                                    var _iteratorError3 = undefined;
 
-                            // once we have an array of accepted values from the user,
-                            // determine what exactly to do with them
-
-                            if (accepted.length === 0) {
-                                // no values accepted
-                                return {
-                                    v: resolve()
-                                };
-                            } else if (accepted.length === 1) {
-                                // only one value accepted, take the shortcut out
-                                ch.puts.push(function () {
-                                    ch.buf.push(accepted[0]);
-                                    return resolve();
-                                });
-                            } else {
-                                // multiple values accepted, gets
-                                // resolve the original put promise
-                                // only when all of the expanded puts
-                                // have been properly consumed by takes
-                                // log('accepting:', accepted);
-                                var promises = [];
-                                _iteratorNormalCompletion3 = true;
-                                _didIteratorError3 = false;
-                                _iteratorError3 = undefined;
-
-                                try {
-                                    var _loop = function () {
-                                        var acc = _step3.value;
-
-                                        var p = new _Promise(function (res) {
-                                            ch.puts.push(function () {
-                                                ch.buf.push(acc);
-                                                return res();
-                                            });
-                                        });
-                                        promises.push(p);
-                                    };
-
-                                    for (_iterator3 = _getIterator(accepted); !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-                                        _loop();
-                                    }
-                                } catch (err) {
-                                    _didIteratorError3 = true;
-                                    _iteratorError3 = err;
-                                } finally {
                                     try {
-                                        if (!_iteratorNormalCompletion3 && _iterator3['return']) {
-                                            _iterator3['return']();
+                                        var _loop = function () {
+                                            var acc = _step3.value;
+
+                                            var p = new _Promise(function (res) {
+                                                ch.puts.push(function () {
+                                                    ch.buf.push(acc);
+                                                    res();
+                                                });
+                                            });
+                                            promises.push(p);
+                                        };
+
+                                        for (var _iterator3 = _getIterator(accepted), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+                                            _loop();
                                         }
+                                    } catch (err) {
+                                        _didIteratorError3 = true;
+                                        _iteratorError3 = err;
                                     } finally {
-                                        if (_didIteratorError3) {
-                                            throw _iteratorError3;
+                                        try {
+                                            if (!_iteratorNormalCompletion3 && _iterator3['return']) {
+                                                _iterator3['return']();
+                                            }
+                                        } finally {
+                                            if (_didIteratorError3) {
+                                                throw _iteratorError3;
+                                            }
                                         }
                                     }
-                                }
 
-                                _Promise.all(promises).then(resolve)['catch'](expose); // resolve the original
+                                    _Promise.all(promises).then(resolve)['catch'](expose); // resolve the original
+                                }
+                                refill(ch);
+                                spend(ch);
+                            };
+
+                            // synchronous transform with a "push" callback,
+                            // to be used in order to expand a single value into multiples
+                            if (ch.transform.length === 2) {
+                                try {
+                                    ch.transform(val, function (acc) {
+                                        if (typeof acc !== 'undefined') accepted.push(acc);
+                                    });
+                                    done();
+                                } catch (e) {
+                                    return {
+                                        v: done(e)
+                                    };
+                                }
+                            }
+
+                            // asynchronous transform with a "push" callback,
+                            // as well as a "done" callback,
+                            // to be able to push values onto the channel
+                            // asynchronously from a transform method
+                            else {
+                                ch.transform(val, function (acc) {
+                                    if (typeof acc !== 'undefined') accepted.push(acc);
+                                }, done);
                             }
                         })();
 
@@ -509,9 +530,9 @@ var Channel = (function () {
                         ch.buf.push(val);
                         return resolve();
                     });
+                    refill(ch);
+                    spend(ch);
                 }
-                refill(ch);
-                spend(ch);
             });
         }
     }, {
@@ -519,7 +540,7 @@ var Channel = (function () {
 
         /*
             Takes the first value from the provided channel.
-              If no value is provided, the promise will be pushed
+             If no value is provided, the promise will be pushed
             onto Channel.takes to be resolved when a value is available.
         */
         value: function take(ch) {
@@ -533,10 +554,7 @@ var Channel = (function () {
                 }
                 refill(ch);
                 spend(ch);
-                if (ch.empty() && ch.state === STATES.CLOSED) {
-                    flush(ch);
-                    finish(ch);
-                }
+                if (ch.empty() && ch.state === STATES.CLOSED) flush(ch);
             });
         }
     }, {
@@ -641,14 +659,12 @@ var Channel = (function () {
         value: function consume(ch) {
             var consumer = arguments[1] === undefined ? function () {} // noop default
             : arguments[1];
-            var spin;
             return _regeneratorRuntime.async(function consume$(context$2$0) {
                 var _this2 = this;
 
                 while (1) switch (context$2$0.prev = context$2$0.next) {
                     case 0:
-                        spin = true;
-
+                        ch[IS_CONSUMING] = true;
                         (function callee$2$0() {
                             var val;
                             return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
@@ -662,42 +678,47 @@ var Channel = (function () {
 
                                     case 3:
                                         context$3$0.t0 = val = context$3$0.sent;
-                                        context$3$0.t1 = Channel.DONE;
 
-                                        if (!(context$3$0.t0 !== context$3$0.t1)) {
-                                            context$3$0.next = 16;
+                                        if (!(context$3$0.t0 !== Channel.DONE)) {
+                                            context$3$0.next = 15;
                                             break;
                                         }
 
-                                        context$3$0.prev = 6;
-                                        context$3$0.next = 9;
+                                        context$3$0.prev = 5;
+                                        context$3$0.next = 8;
                                         return _regeneratorRuntime.awrap(consumer(val));
 
-                                    case 9:
-                                        context$3$0.next = 14;
+                                    case 8:
+                                        context$3$0.next = 13;
                                         break;
 
-                                    case 11:
-                                        context$3$0.prev = 11;
-                                        context$3$0.t2 = context$3$0['catch'](6);
+                                    case 10:
+                                        context$3$0.prev = 10;
+                                        context$3$0.t1 = context$3$0['catch'](5);
 
-                                        expose(context$3$0.t2);
+                                        expose(context$3$0.t1);
 
-                                    case 14:
+                                    case 13:
                                         context$3$0.next = 1;
                                         break;
 
-                                    case 16:
+                                    case 15:
+                                        // can we signal that the consumer is finally done, at this point?
+                                        // so that Channel.done() waits until consumers are fully completed?
+
+                                        // kind of a silly setup, but this is functional against unit tests.
+                                        // refactor into something a little more intuitive at some point.
+                                        ch[IS_CONSUMING] = false;
+                                        finish(ch);
+
+                                    case 17:
                                     case 'end':
                                         return context$3$0.stop();
                                 }
-                            }, null, _this2, [[6, 11]]);
+                            }, null, _this2, [[5, 10]]);
                         })();
-                        return context$2$0.abrupt('return', function () {
-                            spin = false;
-                        });
 
-                    case 3:
+                    case 2:
                     case 'end':
                         return context$2$0.stop();
                 }
@@ -725,20 +746,20 @@ var Channel = (function () {
             for the provided function arguments,
             setting up a pipe from the first channel
             all the way down to the last channel.
-              Returns references to both
+             Returns references to both
             the first and the last channel.
         */
         value: function pipeline() {
+            for (var _len5 = arguments.length, functions = Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
+                functions[_key5] = arguments[_key5];
+            }
+
             var channels = [];
             var _iteratorNormalCompletion4 = true;
             var _didIteratorError4 = false;
             var _iteratorError4 = undefined;
 
             try {
-                for (var _len4 = arguments.length, functions = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-                    functions[_key4] = arguments[_key4];
-                }
-
                 for (var _iterator4 = _getIterator(functions), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
                     var fn = _step4.value;
 
@@ -770,9 +791,9 @@ var Channel = (function () {
         /*
             Builds a pipeline from a parent channel
             to one or more children.
-              This will automatically pipe values from
+             This will automatically pipe values from
             the parent onto each of the children.
-              (dev note: careful, errors which are thrown from here
+             (dev note: careful, errors which are thrown from here
              do NOT bubble up to the user yet in nodejs.
              will be fixed in the future, supposedly).
         */
@@ -780,8 +801,8 @@ var Channel = (function () {
             var _parent$pipeline,
                 _this4 = this;
 
-            for (var _len5 = arguments.length, channels = Array(_len5 > 1 ? _len5 - 1 : 0), _key5 = 1; _key5 < _len5; _key5++) {
-                channels[_key5 - 1] = arguments[_key5];
+            for (var _len6 = arguments.length, channels = Array(_len6 > 1 ? _len6 - 1 : 0), _key6 = 1; _key6 < _len6; _key6++) {
+                channels[_key6 - 1] = arguments[_key6];
             }
 
             (_parent$pipeline = parent.pipeline).push.apply(_parent$pipeline, channels);
@@ -918,16 +939,16 @@ var Channel = (function () {
             Pipes all provided channels into a new, single destination.
         */
         value: function merge() {
+            for (var _len7 = arguments.length, channels = Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
+                channels[_key7] = arguments[_key7];
+            }
+
             var child = new Channel();
             var _iteratorNormalCompletion6 = true;
             var _didIteratorError6 = false;
             var _iteratorError6 = undefined;
 
             try {
-                for (var _len6 = arguments.length, channels = Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
-                    channels[_key6] = arguments[_key6];
-                }
-
                 for (var _iterator6 = _getIterator(channels), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
                     var _parent = _step6.value;
 
@@ -955,6 +976,10 @@ var Channel = (function () {
 
         // UNTESTED. CARE.
         value: function unpipe(parent) {
+            for (var _len8 = arguments.length, channels = Array(_len8 > 1 ? _len8 - 1 : 0), _key8 = 1; _key8 < _len8; _key8++) {
+                channels[_key8 - 1] = arguments[_key8];
+            }
+
             var _iteratorNormalCompletion7 = true;
             var _didIteratorError7 = false;
             var _iteratorError7 = undefined;
@@ -970,10 +995,6 @@ var Channel = (function () {
                     var _iteratorError8 = undefined;
 
                     try {
-                        for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
-                            channels[_key7 - 1] = arguments[_key7];
-                        }
-
                         for (var _iterator8 = _getIterator(channels), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
                             var ch2 = _step8.value;
 

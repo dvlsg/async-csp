@@ -4,7 +4,9 @@ import assert from 'zana-assert';
 import wrapMocha from './util/wrap-mocha.js'; // executes automatically
 let log = console.log.bind(console);
 
-describe('Channel', () => {
+describe('Channel', function() {
+
+    this.timeout(100);
 
     describe('constructor', () => {
         it('should initialize properly', async() => {
@@ -314,6 +316,7 @@ describe('Channel', () => {
             let ch = new Channel();
             assert.equal(ch.state, STATES.OPEN);
             ch.close();
+            await ch.done();
             assert.equal(ch.state, STATES.ENDED);
         });
 
@@ -717,7 +720,7 @@ describe('Channel', () => {
             await ch.put(5);
             ch.close();
             await ch.done();
-            assert.equal(counter, 10);
+            assert.equal(counter, 15);
         });
 
         it('can consume values asynchronously', async() => {
@@ -734,7 +737,7 @@ describe('Channel', () => {
             await ch.put(5);
             ch.close();
             await ch.done();
-            assert.equal(counter, 10);
+            assert.equal(counter, 15);
         });
     });
 
@@ -763,9 +766,9 @@ describe('Channel', () => {
         });
 
         it('should transform values by callback', async() => {
-            let ch = new Channel((x, accept) => {
+            let ch = new Channel((x, push) => {
                 if (x > 2)
-                    accept(x);
+                    push(x);
             });
             await ch.put(1);
             await ch.put(2);
@@ -776,11 +779,11 @@ describe('Channel', () => {
             assert.empty(ch);
         });
 
-        it('should expand values by multiple callbacks', async() => {
-            let ch = new Channel(20, (x, accept) => {
+        it('should expand values by multiple callback executions', async() => {
+            let ch = new Channel(20, (x, push) => {
                 if (x > 2) {
-                    accept(x);
-                    accept(x);
+                    push(x);
+                    push(x);
                 }
             });
             await ch.put(1);
@@ -795,12 +798,13 @@ describe('Channel', () => {
         });
 
         it('should maintain order with multiple callback transforms', async() => {
-            let ch = new Channel(2, (val, accept) => {
+            let ch = new Channel(2, (val, push, done) => {
                 if (val > 2) {
-                    accept(val);
-                    accept(val*2);
-                    accept(val*3);
+                    push(val);
+                    push(val*2);
+                    push(val*3);
                 }
+                setTimeout(done, 10);
             });
 
             let arr = [];

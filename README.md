@@ -2,21 +2,22 @@
 Communicating sequential processes, or asynchronous buffered data pipes, designed to be used with async/await.
 
 ```js
-async function puts(channel) {
-    for (let i = 0; i < 5; i++) {
-        await timeout(1000);
-        await channel.put(i);
-    }
-}
 
-async function takes(channel) {
-    for (let i = 0; i < 5; i++) {
-        let val = await channel.take();
-        console.log('val:', val);
-    }
-}
-
-// create a new csp channel
+	async function puts(channel) {
+	    for (let i = 0; i < 5; i++) {
+	        await timeout(1000);
+	        await channel.put(i);
+	    }
+	}
+	
+	async function takes(channel) {
+	    for (let i = 0; i < 5; i++) {
+	        let val = await channel.take();
+	        console.log('val:', val);
+	    }
+	}
+	
+	// create a new csp channel
 
 	let channel = new Channel();
 	

@@ -180,20 +180,43 @@ If values should be dropped from the `Channel`, simply return `undefined` from t
     await ch.take(); //=> 4
 ```
 
-If a transform should take a single value and expand it into multiple values, then an additional push callback can be used.
+If a transform should take a single value and expand it into multiple values, then the `push` parameter can be used with the transform callback.
+
+Note that when using this method, any values must be sent through `push`. Any value returned from the transform callback will be ignored when more than one parameter is defined.
 
 ```js
 
 	let ch = new Channel((x, push) => {
         push(x);
-        push(x + 4);
+        push(x + 1);
     });
+
+	await ch.put(1);
+	await ch.put(3);
+
+	await ch.take(); //=> 1
+	await ch.take(); //=> 2
+	await ch.take(); //=> 3
+	await ch.take(); //=> 4
+```
+
+If a transform should work asynchronously, simply use a third parameter with the transform callback to signify that the transform has finished executing.
+
+```js
+
+	let ch = new Channel((x, push, done) => {
+		push(x);
+		setTimeout(() => {
+			push(x + 1);
+			done();
+		}, 500);
+	});
 
 	await ch.put(1);
 	await ch.put(2);
 
 	await ch.take(); //=> 1
-	await ch.take(); //=> 5
 	await ch.take(); //=> 2
-	await ch.take(); //=> 6
+	await ch.take(); //=> 3
+	await ch.take(); //=> 4
 ```

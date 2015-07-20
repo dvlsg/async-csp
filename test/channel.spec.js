@@ -747,7 +747,7 @@ describe('Channel', function() {
     describe('transform', () => {
 
         it('should transform values', async() => {
-            let ch = new Channel(x => x**2);
+            let ch = new Channel(x => x ** 2);
             for (let i = 1; i <= 4; i++)
                 await ch.put(i);
             for (let i = 0; i < 4; i++)
@@ -801,13 +801,12 @@ describe('Channel', function() {
         });
 
         it('should maintain order with multiple callback transforms', async() => {
-            let ch = new Channel(2, (val, push, done) => {
-                if (val > 2) {
-                    push(val);
-                    push(val * 2);
-                    push(val * 3);
+            let ch = new Channel(2, (x, push) => {
+                if (x > 2) {
+                    push(x);
+                    push(x * 2);
+                    push(x * 3);
                 }
-                setTimeout(done, 10);
             });
 
             let arr = [];
@@ -824,6 +823,43 @@ describe('Channel', function() {
             ch.close(true);
             await ch.done();
             assert.equal(arr, [3, 6, 9, 4, 8, 12, 5, 10, 15, 6, 12, 18]);
+        });
+
+        it('should transform values asynchronously when promise is returned', async() => {
+            let ch = new Channel(4, async(val, push) => {
+                await timeout(5);
+                push(val);
+                await timeout(5);
+                push(val + 2);
+            });
+
+            let arr = [];
+            ch.consume(x => arr.push(x));
+            await ch.put(1);
+            await ch.put(2);
+            ch.close();
+            await ch.done();
+            assert.equal(arr, [1, 3, 2, 4]);
+        });
+
+        it('should transform values asynchronously when 3 parameters are used', async() => {
+            let ch = new Channel(4, (val, push, done) => {
+                setTimeout(() => {
+                    push(val);
+                    setTimeout(() => {
+                        push(val + 2);
+                        done();
+                    }, 5);
+                }, 5);
+            });
+
+            let arr = [];
+            ch.consume(x => arr.push(x));
+            await ch.put(1);
+            await ch.put(2);
+            ch.close();
+            await ch.done();
+            assert.equal(arr, [1, 3, 2, 4]);
         });
 
     });

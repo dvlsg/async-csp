@@ -3,6 +3,8 @@ Communicating sequential processes, or asynchronous buffered data pipes, designe
 
 ```js
 
+	import Channel, { timeout } from 'async-csp';
+
 	async function puts(channel) {
 	    for (let i = 0; i < 5; i++) {
 	        await timeout(1000);
@@ -18,7 +20,6 @@ Communicating sequential processes, or asynchronous buffered data pipes, designe
 	}
 	
 	// create a new csp channel
-
 	let channel = new Channel();
 	
 	// places a value onto the channel once every second
@@ -27,9 +28,12 @@ Communicating sequential processes, or asynchronous buffered data pipes, designe
 	// logs values from the channel as soon as they are available
 	takes(channel);
 	
+	// console logs, once a second
+	//=> 0
 	//=> 1
 	//=> 2
 	//=> 3
+	//=> 4
 ```
 
 ## Installation
@@ -52,7 +56,7 @@ npm install async-csp
 
 ## Usage
 
-*Note: All of the examples below are assumed to be executed from an `async` context, so `await` is available. To read more about these methods, see [this proposal](https://github.com/lukehoban/ecmascript-asyncawait) for async/await in ES7.
+*Note: All of the examples below are assumed to be executed from an `async` context, so `await` is available. To read more about these methods, see [this proposal](https://github.com/lukehoban/ecmascript-asyncawait) for async/await in ES7.*
 
 ### Data Flow
 
@@ -73,7 +77,7 @@ To place a value on a `Channel`, you may use the method `put()`, and to take a v
 	console.log(await ch.take()); //=> 3
 ```
 
-### Buffering
+### Buffer
 
 When a `Channel` is full, `put()` will not resolve until space on the buffer becomes available. When a `Channel` is empty, `take()` will not resolve until a value is available.
 
@@ -102,50 +106,7 @@ To create a `Channel` with a buffer size, pass in a `Number` as the first argume
 	takes(channel);
 ```
 
-### Piping
-
-Similarly to `Streams`, `Channels` can be piped from one to another.
-
-```js
-
-	let ch1 = new Channel();
-	let ch2 = new Channel();
-	
-	ch1.pipe(ch2);
-	
-	await ch1.put(1);
-	await ch1.put(2);
-	await ch1.put(3);
-	
-	await ch2.take(); //=>  1
-	await ch2.take(); //=>  2
-	await ch2.take(); //=>  3
-```
-
-`Channels` can be piped to multiple destinations. In this case, all downstream `Channels` will receive every value from upstream.
-
-```js
-
-	let ch1 = new Channel();
-	let ch2 = new Channel();
-	let ch3 = new Channel();
-	
-	ch1.pipe(ch2, ch3);
-	
-	await ch1.put(1);
-	await ch1.put(2);
-	await ch1.put(3);
-	
-	await ch2.take(); //=>  1
-	await ch2.take(); //=>  2
-	await ch2.take(); //=>  3
-
-	await ch3.take(); //=>  1
-	await ch3.take(); //=>  2
-	await ch3.take(); //=>  3
-```
-
-### Transforming
+### Transform
 
 When constructing a `Channel`, you can pass in a callback to transform values as they placed onto the buffer.
 
@@ -219,4 +180,84 @@ If a transform should work asynchronously, simply use a third parameter with the
 	await ch.take(); //=> 2
 	await ch.take(); //=> 3
 	await ch.take(); //=> 4
+```
+
+### Pipe
+
+Similarly to `Streams`, `Channels` can be piped from one to another.
+
+```js
+
+	let ch1 = new Channel();
+	let ch2 = new Channel();
+	
+	ch1.pipe(ch2);
+	
+	await ch1.put(1);
+	await ch1.put(2);
+	await ch1.put(3);
+	
+	await ch2.take(); //=>  1
+	await ch2.take(); //=>  2
+	await ch2.take(); //=>  3
+```
+
+`Channels` can be piped to multiple destinations. In this case, all downstream `Channels` will receive every value from upstream.
+
+```js
+
+	let ch1 = new Channel();
+	let ch2 = new Channel();
+	let ch3 = new Channel();
+	
+	ch1.pipe(ch2, ch3);
+	
+	await ch1.put(1);
+	await ch1.put(2);
+	await ch1.put(3);
+	
+	await ch2.take(); //=>  1
+	await ch2.take(); //=>  2
+	await ch2.take(); //=>  3
+
+	await ch3.take(); //=>  1
+	await ch3.take(); //=>  2
+	await ch3.take(); //=>  3
+```
+
+### Merge
+
+Merging is a form of automated piping from multiple `Channels` into a single, new `Channel`.
+
+```js
+
+	let ch1 = new Channel();
+	let ch2 = new Channel();
+	let ch3 = Channel.merge(ch1, ch2);
+	
+	await ch1.put(1);
+	await ch2.put(2);
+
+	await ch3.take(); //=> 1
+	await ch3.take(); //=> 2
+```
+
+### Close
+
+When a `Channel` will no longer have data written to it, you can execute `close` to signify this. Data can still be taken from the channel, even when closed, but no data can be added after that point.
+
+```js
+
+	let ch1 = new Channel();
+	
+	await ch1.put(1);
+	await ch1.put(2);
+
+	ch1.close();
+
+	await ch3.put(3); // resolves immediately with value of Channel.DONE
+
+	await ch1.take(); //=> 1
+	await ch1.take(); //=> 2
+	await ch1.take(); //=> Channel.DONE
 ```

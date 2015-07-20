@@ -453,7 +453,6 @@ var Channel = (function () {
                                     // resolve the original put promise
                                     // only when all of the expanded puts
                                     // have been properly consumed by takes
-                                    // log('accepting:', accepted);
                                     var promises = [];
                                     var _iteratorNormalCompletion3 = true;
                                     var _didIteratorError3 = false;
@@ -500,10 +499,12 @@ var Channel = (function () {
                             // to be used in order to expand a single value into multiples
                             if (ch.transform.length === 2) {
                                 try {
-                                    ch.transform(val, function (acc) {
+                                    var transformed = ch.transform(val, function (acc) {
                                         if (typeof acc !== 'undefined') accepted.push(acc);
                                     });
-                                    done();
+                                    if (transformed instanceof _Promise) transformed.then(function () {
+                                        return done();
+                                    })['catch'](done);else done();
                                 } catch (e) {
                                     return {
                                         v: done(e)

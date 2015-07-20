@@ -299,7 +299,6 @@ export default class Channel {
                             // resolve the original put promise
                             // only when all of the expanded puts
                             // have been properly consumed by takes
-                            // log('accepting:', accepted);
                             let promises = [];
                             for (let acc of accepted) {
                                 let p = new Promise(res => {
@@ -318,16 +317,18 @@ export default class Channel {
                         spend(ch);
                     };
 
-
                     // synchronous transform with a "push" callback,
                     // to be used in order to expand a single value into multiples
                     if (ch.transform.length === 2) {
                         try {
-                            ch.transform(val, acc => {
+                            let transformed = ch.transform(val, acc => {
                                 if (typeof acc !== 'undefined')
                                     accepted.push(acc);
                             });
-                            done();
+                            if (transformed instanceof Promise)
+                                transformed.then(() => done()).catch(done);
+                            else
+                                done();
                         }
                         catch(e) {
                             return done(e);

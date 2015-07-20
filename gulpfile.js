@@ -1,9 +1,10 @@
-var gulp    = require('gulp');
-var mocha   = require('gulp-mocha');
-var eslint  = require('gulp-eslint');
-var plumber = require('gulp-plumber');
-var babel   = require('gulp-babel');
-var del     = require('del');
+var gulp     = require('gulp');
+var mocha    = require('gulp-mocha');
+var eslint   = require('gulp-eslint');
+var plumber  = require('gulp-plumber');
+var babel    = require('gulp-babel');
+var del      = require('del');
+var sequence = require('run-sequence');
 
 require('babel-core/register'); // for mocha tests
 
@@ -16,23 +17,24 @@ var distGlob = distDir + '*.js';
 var testDir = './test/';
 var testGlob = testDir + '*.spec.js';
 
-
 gulp.task('lint', function() {
     return gulp.src(srcGlob)
         .pipe(eslint()) // config in .eslintrc
         .pipe(eslint.format())
 });
 
-gulp.task('test', ['lint'], function() {
+gulp.task('test', function() {
     return gulp.src(testGlob)
+        .pipe(eslint())
+        .pipe(eslint.format())
         .pipe(mocha({ reporter: 'spec' }));
 });
 
-gulp.task('clean', function() {
-    return del(distDir);
+gulp.task('clean', function(done) {
+    return del([distDir], done);
 });
 
-gulp.task('build', ['lint'], function() {
+gulp.task('build', function() {
     return gulp.src(srcGlob)
         .pipe(plumber())
         .pipe(babel()) // config in .babelrc
@@ -40,9 +42,23 @@ gulp.task('build', ['lint'], function() {
         .pipe(gulp.dest(distDir))
 });
 
-gulp.task('watch', ['build'], function() {
-    gulp.watch(srcGlob, ['build']);
+gulp.task('watch', function() {
+    gulp.watch(srcGlob, function() {
+        sequence(
+            'lint',
+            'build'
+        );
+    });
     gulp.watch(testGlob, ['test']);
 });
 
-gulp.task('default', ['lint']);
+gulp.task('default', function(done) {
+    sequence(
+        'test',
+        'clean',
+        'lint',
+        'build',
+        'watch',
+        done
+    );
+});

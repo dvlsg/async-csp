@@ -1,8 +1,12 @@
+"use strict";
+
 import Channel, { STATES, timeout } from '../src/channel.js';
 import {Queue, FixedQueue} from '../src/data-structures.js';
 import assert from 'zana-assert';
+
+/*eslint-disable no-unused-vars*/
 import wrapMocha from './util/wrap-mocha.js'; // executes automatically
-let log = console.log.bind(console);
+/*eslint-enable no-unused-vars*/
 
 describe('Channel', function() {
 
@@ -11,7 +15,7 @@ describe('Channel', function() {
     describe('constructor', () => {
         it('should initialize properly', async() => {
             let ch = new Channel();
-            
+
             assert.true(ch.empty());
             assert.is(ch, Channel);
             assert.equal(ch.state, STATES.OPEN);
@@ -104,7 +108,7 @@ describe('Channel', function() {
         });
 
         it('should be false when buffer is non empty', async() => {
-            let ch = Channel.from([1,2,3]);
+            let ch = Channel.from([1, 2, 3]);
             assert.true(ch.puts.empty());
             assert.false(ch.buf.empty());
             assert.false(ch.empty());
@@ -112,7 +116,7 @@ describe('Channel', function() {
 
         it('should be true even if takes queue is non empty', async() => {
             let ch = new Channel();
-            let take = ch.take();
+            ch.take();
             assert.true(ch.puts.empty());
             assert.true(ch.buf.empty());
             assert.false(ch.takes.empty());
@@ -180,7 +184,7 @@ describe('Channel', function() {
 
         it('should put values in order', async() => {
             let ch = new Channel(8);
-            for (let val of [1,2,3,4,5])
+            for (let val of [1, 2, 3, 4, 5])
                 await ch.put(val);
             assert.equal(await ch.take(), 1);
             assert.equal(await ch.take(), 2);
@@ -236,8 +240,8 @@ describe('Channel', function() {
             let arr = [];
             for (let i = 0; i < 10; i++)
                 arr.push(await ch.take());
-            for (let i = 0; i < arr.length-1; i++)
-                assert.true(arr[i] <= arr[i+1]);
+            for (let i = 0; i < arr.length - 1; i++)
+                assert.true(arr[i] <= arr[i + 1]);
         });
 
         it('should queue takes when buffer is empty', async() => {
@@ -260,10 +264,10 @@ describe('Channel', function() {
     describe('from', () => {
 
         it('can initialize a channel from an array', async() => {
-            let arr = [1,2,3,4,5];
-            let ch = Channel.from([1,2,3,4,5]);
+            let arr = [1, 2, 3, 4, 5];
+            let ch = Channel.from([1, 2, 3, 4, 5]);
             assert.equal(arr.length, ch.buf.length);
-            for (let [key, val] of arr.entries())
+            for (let val of arr)
                 assert.equal(await ch.take(), val);
             assert.true(ch.empty());
             assert.equal(ch.state, STATES.ENDED);
@@ -292,12 +296,12 @@ describe('Channel', function() {
         });
 
         it('should initialize the channel as closed', async() => {
-            let ch = Channel.from([1,2,3]);
+            let ch = Channel.from([1, 2, 3]);
             assert.equal(ch.state, STATES.CLOSED);
         });
 
         it('can leave the channel open by flag', async() => {
-            let ch = Channel.from([1,2,3], true);
+            let ch = Channel.from([1, 2, 3], true);
             assert.equal(ch.state, STATES.OPEN);
         });
     });
@@ -415,7 +419,7 @@ describe('Channel', function() {
             for (let i = 0; i < 5; i++)
                 await ch1.put(i);
             for (let i = 0; i < 5; i++)
-                assert.equal(await ch3.take(), {y: i+2});
+                assert.equal(await ch3.take(), {y: i + 2});
         });
 
         it('should be able to put values onto any channel', async() => {
@@ -447,10 +451,10 @@ describe('Channel', function() {
             ch1.pipe(ch2, ch3);
             await ch1.put(1);
             await ch1.put(2);
-            let put3 = ch1.put(3);
-            let put4 = ch1.put(4);
+            ch1.put(3);
+            ch1.put(4);
             await timeout(); // hacky, but put3 and put4 will not be resolved immediately
-            
+
             // ch1 should not be empty already, but the 3rd value will be taken off the buffer
             // and will be hanging out in a hidden context waiting to be resolved on all pipes
             // the 4th value should remain on the buffer until the pipe is unblocked
@@ -564,7 +568,6 @@ describe('Channel', function() {
         it('should remove a channel from a pipeline', async() => {
             let ch1 = new Channel(2);
             let ch2 = new Channel(2);
-            let ch3 = new Channel(3);
             ch1.pipe(ch2);
             assert.equal(ch1.pipeline, [ch2]);
             ch1.unpipe(ch2);
@@ -590,7 +593,7 @@ describe('Channel', function() {
             ch1.unpipe(ch2);
             assert.equal(await ch2.take(), 1);
             assert.equal(await ch2.take(), 2);
-            
+
             assert.false(ch2.empty());
             // note this - since 3 is already queued up in ch2.puts,
             // it will STILL be received inside channel 2
@@ -689,7 +692,7 @@ describe('Channel', function() {
             ch.produce(Math.random);
             for (let i = 0; i < 10; i++) {
                 let val = await ch.take();
-                assert.true(0 <= val && val < 1);
+                assert.true(val >= 0 && val < 1);
             }
         });
 
@@ -801,8 +804,8 @@ describe('Channel', function() {
             let ch = new Channel(2, (val, push, done) => {
                 if (val > 2) {
                     push(val);
-                    push(val*2);
-                    push(val*3);
+                    push(val * 2);
+                    push(val * 3);
                 }
                 setTimeout(done, 10);
             });
@@ -837,7 +840,7 @@ describe('Channel', function() {
             assert.true(ch.empty());
             assert.equal(ch.state, STATES.ENDED);
         });
-        
+
     });
 
 });

@@ -114,13 +114,13 @@ When constructing a `Channel`, you can pass in a callback to transform values as
 
 	let ch = new Channel(x => x * 2);
 	
-	await ch1.put(1);
-	await ch1.put(2);
-	await ch1.put(3);
+	await ch.put(1);
+	await ch.put(2);
+	await ch.put(3);
 
-	await ch1.take(); //=> 2
-	await ch1.take(); //=> 4
-	await ch1.take(); //=> 6
+	await ch.take(); //=> 2
+	await ch.take(); //=> 4
+	await ch.take(); //=> 6
 ```
 
 If values should be dropped from the `Channel`, simply return `undefined` from the transform callback.
@@ -244,7 +244,9 @@ Merging is a form of automated piping from multiple `Channels` into a single, ne
 
 ### Close
 
-When a `Channel` will no longer have data written to it, you can execute `close` to signify this. Data can still be taken from the channel, even when closed, but no data can be added after that point.
+`Channels` have 3 states: open, closed, and ended. An open `Channel` can be written to, a closed `Channel` can no longer be written to, and an ended `Channel` is both closed and empty.
+
+To signify that a `Channel` will no longer have data written, execute `close`. Data can still be taken from the channel, even when closed, but no data can be added after that point.
 
 ```js
 
@@ -260,4 +262,42 @@ When a `Channel` will no longer have data written to it, you can execute `close`
 	await ch1.take(); //=> 1
 	await ch1.take(); //=> 2
 	await ch1.take(); //=> Channel.DONE
+```
+
+If `Channels` are piped together, and you want the entire pipeline to close, simply pass `true` as an argument to `close`.
+
+```js
+
+	let ch1 = new Channel();
+	let ch2 = new Channel();
+	ch1.pipe(ch2);
+
+	await ch1.put(1);
+	await ch1.put(2);
+	
+	ch1.close(true);
+
+	await ch2.take(); //=> 1
+	await ch2.take(); //=> 2
+	await ch2.take(); //=> Channel.DONE
+```
+
+In order to wait for a channel to be ended (closed and empty), await the resolution of `done`.
+
+```js
+
+	let ch = new Channel();
+	
+	await ch.put(1);
+	await ch.put(2);
+	ch.close();
+
+	(async() => {
+		await timeout(1000);
+		await ch.take();
+		await timeout(1000);
+		await ch.take();
+	})();
+
+	await ch.done(); // will not resolve until the async IIFE takes both values from the channel
 ```

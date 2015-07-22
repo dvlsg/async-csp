@@ -1,11 +1,7 @@
 "use strict";
 
-/* eslint no-cond-assign: 0 */  // intentional while loop assign in flush
-/* eslint no-unused-vars: 0 */  // so we can have log, even when not using it
-/* eslint no-empty: 0 */        // intentional empty block inside Channel.produce()
-
-import { Queue, FixedQueue } from './data-structures.js';
-let log = console.log.bind(console);
+import { List, FixedQueue } from './data-structures.js';
+let log = ::console.log; // eslint-disable-line no-unused-vars
 
 /*
     Three possible states:
@@ -26,10 +22,11 @@ export const ACTIONS = {
     CANCEL : Symbol('channel_cancel')
 };
 
+const STATE = Symbol('channel_state');
 const SHOULD_CLOSE = Symbol('channel_should_close');
-const CHANNEL_SOURCE = Symbol('channel_source');
-const IS_PIPED = Symbol('channel_piped'); // TBD -- do we need this?
 const IS_CONSUMING = Symbol('channel_consuming');
+const IS_FLUSHING = Symbol('channel_flushing');
+const IS_SLIDING = Symbol('channel_sliding');
 
 /*
     Error expose method to assist with ensuring
@@ -40,28 +37,6 @@ const IS_CONSUMING = Symbol('channel_consuming');
 */
 function expose(e: Error) {
     setTimeout(() => { throw e; });
-}
-
-/*
-    Shifts and returns a value inside the channel
-    from either the buffer or the puts.
-*/
-function shift(ch: Channel) {
-    if (ch.empty())
-        // this error is never expected to be thrown
-        // just a sanity check during development
-        throw new Error('Attempted to execute shift(Channel) on an empty channel!');
-
-    if (ch.buf.empty()) {
-        ch.puts.shift()();
-        return ch.buf.shift();
-    }
-    else {
-        let val = ch.buf.shift();
-        if (!ch.puts.empty())
-            ch.puts.shift()();
-        return val;
-    }
 }
 
 /*
@@ -83,52 +58,75 @@ function flush(ch: Channel) {
         // this error is never expected to be thrown
         // just a sanity check during development
         throw new Error('Attempted to execute flush(Channel) on a non-empty channel!');
-    let take, takes = [];
-    while (take = ch.takes.shift())
-        takes.push(take(ACTIONS.DONE));
-    Promise.all(takes).then(() => {
-        // silly compatibility stuff with Channel.consume()
-        // up for refactor in the future, but works for now.
-        if (!ch[IS_CONSUMING])
-            return finish(ch);
+    if (ch[IS_FLUSHING])
+        return ch[IS_FLUSHING];
+    ch[IS_FLUSHING] = new Promise((resolve) => {
+        let take, takes = [];
+        while (take = ch.takes.shift())  // eslint-disable-line no-cond-assign
+            takes.push(take(ACTIONS.DONE));
+        return Promise.all(takes).then(() => { //eslint-disable-line consistent-return
+            // silly compatibility stuff with Channel.consume()
+            // up for refactor in the future, but works for now.
+            ch[IS_FLUSHING] = null; // scary.
+            setImmediate(resolve); // best spot for this?
+            if (!ch[IS_CONSUMING])
+                return finish(ch);
+            // else consumer is expected to finish when completed
+        });
     });
+    return ch[IS_FLUSHING];
 }
 
-/*
-    Refills the channel's buffer
-    with any available puts.
-*/
-function refill(ch: Channel) {
-    while (!ch.buf.full() && !ch.puts.empty())
-        ch.puts.shift()();
+async function _slide(ch: Channel) {
+    while (!ch.buf.full() && !ch.puts.empty()) {
+        let put = ch.puts.shift();
+        await put();
+        if (!ch.takes.empty() && !ch.buf.empty()) {
+            let val = ch.buf.shift();
+            let take = ch.takes.shift();
+            take(val);
+        }
+    }
+    while (!ch.takes.empty() && !ch.buf.empty()) {
+        let val = ch.buf.shift();
+        let take = ch.takes.shift();
+        take(val);
+    }
 }
 
-/*
-    Loops through and uses any
-    available takes on the channel
-    while buffer values are available.
-*/
-function spend(ch: Channel) {
-    while (!ch.takes.empty() && !ch.buf.empty())
-        ch.takes.shift()(shift(ch));
+async function slide(ch: Channel) {
+    if (ch[IS_SLIDING])
+        return ch[IS_SLIDING];
+    // boo, deferred pattern, but we need to await for an unknown number of times.
+    // consider something else in the future. maybe make _slide directly recursive with a final resolve?
+    let deferred = new Promise((res) => { // eslint-disable-line no-unused-vars
+        ch[IS_SLIDING] = res;
+    });
+    await _slide(ch);
+    while ((!ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty())) // performance concern?
+        await _slide(ch);
+    let resolve = ch[IS_SLIDING];
+    ch[IS_SLIDING] = null;
+    resolve();
+    if (ch[STATE] === STATES.CLOSED && ch.buf.empty() && ch.puts.empty())
+        await flush(ch);
 }
 
 export function timeout(delay = 0) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         setTimeout(resolve, delay);
     });
 }
 
-const STATE = Symbol('channel_state');
 export default class Channel {
 
-    // A queue containing any puts which could not be placed directly onto the buffer
-    puts: Queue;
+    // A List containing any puts which could not be placed directly onto the buffer
+    puts: List;
 
-    // A queue containing any takes waiting for values to be provided
-    takes: Queue;
+    // A List containing any takes waiting for values to be provided
+    takes: List;
 
-    // A queue containing values ready to be taken.
+    // A FixedQueue containing values ready to be taken.
     buf: FixedQueue;
 
     // An optional function to used to transform values passing through the channel.
@@ -163,14 +161,12 @@ export default class Channel {
             if (argv[1] && typeof argv[1] === 'function')
                 transform = argv[1];
         }
-        this.puts      = new Queue();
-        this.takes     = new Queue();
-        this.spacing   = new Queue();
+        this.puts      = new List();
+        this.takes     = new List();
         this.buf       = new FixedQueue(size);
         this.transform = transform;
         this.pipeline  = [];
         this.waiting   = [];
-        this.spaces    = []; // new name, if necessary
         this[STATE]    = STATES.OPEN;
     }
 
@@ -179,11 +175,12 @@ export default class Channel {
         placing all of the iterable's values onto that channel.
     */
     static from(iterable, keepOpen = false) {
-        let ch = new Channel();
-        for (let val of iterable)
-            ch.put(val);
+        let arr = [...iterable];
+        let ch = new Channel(arr.length);
+        for (let val of arr)
+            ch.buf.push(val);
         if (!keepOpen)
-            ch.close(true); // potentially breaking change
+            ch.close(true);
         return ch;
     }
 
@@ -228,15 +225,14 @@ export default class Channel {
         ch.state = STATES.CLOSED;
         if (all)
             ch[SHOULD_CLOSE] = true;
-        if (ch.empty())
-            flush(ch);
+        return slide(ch).then(() => flush(ch));
     }
 
     /*
         Calls Channel.close for `this`, `all`.
     */
     close(all: Boolean = false) {
-        Channel.close(this, all);
+        return Channel.close(this, all);
     }
 
     /*
@@ -261,101 +257,64 @@ export default class Channel {
         onto Channel.puts to be resolved when buffer space is available.
     */
     static put(ch: Channel, val: any) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
             if (ch.state !== STATES.OPEN)
                 return resolve(ACTIONS.DONE);
-            if (ch.transform && typeof ch.transform === 'function') {
+            if (ch.transform instanceof Function) {
                 if (ch.transform.length === 1) {
-                    // we have a transform with a callback length of 1
-                    // the user will have the option to return undefined (to drop)
-                    // or to return a transformed version of the value (to accept)
-                    ch.puts.push(() => {
-                        val = ch.transform(val);
-                        if (typeof val !== 'undefined')
-                            ch.buf.push(val); // need val to be scoped for later execution
+                    ch.puts.push(async () => {
+                        let transformed = await ch.transform(val);
+                        if (typeof transformed !== 'undefined')
+                            ch.buf.push(transformed);
                         return resolve();
                     });
-                    refill(ch);
-                    spend(ch);
                 }
-                else {
+                else { // transform length of either 2 or 3
                     let accepted = [];
-                    let done = (err) => {
-                        if (err)
-                            return reject(err);
-                        if (accepted.length === 0) {
-                            // no values accepted
-                            resolve();
-                        }
-                        else if (accepted.length === 1) {
-                            // only one value accepted, take the shortcut out
-                            ch.puts.push(() => {
-                                ch.buf.push(accepted[0]);
-                                resolve();
-                            });
-                        }
-                        else {
-                            // multiple values accepted, gets
-                            // resolve the original put promise
-                            // only when all of the expanded puts
-                            // have been properly consumed by takes
-                            let promises = [];
-                            for (let acc of accepted) {
-                                let p = new Promise(res => {
-                                    ch.puts.push(() => {
-                                        ch.buf.push(acc);
-                                        res();
-                                    });
+                    let done = () => {
+                        let promises = [];
+                        for (let i = accepted.length - 1; i >= 0; i--) {
+                            let acc = accepted[i];
+                            let p = new Promise(res => { // eslint-disable-line no-loop-func
+                                ch.puts.unshift(async() => { // eslint-disable-line no-loop-func
+                                    ch.buf.push(acc);
+                                    res();
                                 });
-                                promises.push(p);
-                            }
-                            Promise.all(promises)
-                                .then(resolve)
-                                .catch(expose); // resolve the original
+                            });
+                            promises.push(p);
                         }
-                        refill(ch);
-                        spend(ch);
+                        Promise.all(promises)
+                            .then(resolve)
+                            .catch(reject);
+                        slide(ch); // necessary, but why?
                     };
-
-                    // synchronous transform with a "push" callback,
-                    // to be used in order to expand a single value into multiples
                     if (ch.transform.length === 2) {
-                        try {
-                            let transformed = ch.transform(val, acc => {
+                        ch.puts.push(async() => {
+                            await ch.transform(val, acc => {
                                 if (typeof acc !== 'undefined')
                                     accepted.push(acc);
                             });
-                            if (transformed instanceof Promise)
-                                transformed.then(() => done()).catch(done);
-                            else
-                                done();
-                        }
-                        catch(e) {
-                            return done(e);
-                        }
+                            done();
+                        });
                     }
-
-                    // asynchronous transform with a "push" callback,
-                    // as well as a "done" callback,
-                    // to be able to push values onto the channel
-                    // asynchronously from a transform method
                     else {
-                        ch.transform(val, acc => {
-                            if (typeof acc !== 'undefined')
-                                accepted.push(acc);
-                        }, done);
+                        ch.puts.push(async() => {
+                            ch.transform(val, acc => {
+                                if (typeof acc !== 'undefined')
+                                    accepted.push(acc);
+                            }, done);
+                        });
                     }
                 }
             }
             else {
                 // no transform method available
-                ch.puts.push(() => {
+                ch.puts.push(async() => {
                     ch.buf.push(val);
                     return resolve();
                 });
-                refill(ch);
-                spend(ch);
             }
+            slide(ch);
         });
     }
 
@@ -375,17 +334,9 @@ export default class Channel {
     static take(ch: Channel) {
         return new Promise((resolve) => {
             if (ch.state === STATES.ENDED)
-                return resolve(Channel.DONE);
+                return resolve(ACTIONS.DONE);
             ch.takes.push(resolve);
-            if (!ch.empty()) {
-                let val = shift(ch);
-                let take = ch.takes.shift();
-                take(val);
-            }
-            refill(ch);
-            spend(ch);
-            if (ch.empty() && ch.state === STATES.CLOSED)
-                flush(ch);
+            slide(ch);
         });
     }
 
@@ -413,13 +364,9 @@ export default class Channel {
                     if (val instanceof Promise)
                         val = await val;
                     else
-                        // HACK WARNING (!!!)
-                        // introduce asynchronous processing when function is synchronous
-                        // to prevent users from shooting themselves in the foot by causing
-                        // unbreakable infinite loops with non async producers.
                         await timeout();
                     let r = await Channel.put(ch, val);
-                    if (r === Channel.DONE)
+                    if (r === ACTIONS.DONE)
                         break;
                 }
             }
@@ -448,22 +395,17 @@ export default class Channel {
     {
         ch[IS_CONSUMING] = true;
         (async() => {
-            let val = null;
-            while ((val = await Channel.take(ch)) !== Channel.DONE) {
-                try {
-                    await consumer(val);
-                }
-                catch(e) {
-                    expose(e);
-                }
+            while (ch[IS_CONSUMING]) {
+                let val = await Channel.take(ch);
+                if (val === ACTIONS.DONE)
+                    break;
+                await consumer(val);
             }
-            // can we signal that the consumer is finally done, at this point?
-            // so that Channel.done() waits until consumers are fully completed?
-
-            // kind of a silly setup, but this is functional against unit tests.
-            // refactor into something a little more intuitive at some point.
             ch[IS_CONSUMING] = false;
-            finish(ch);
+            if (ch[IS_FLUSHING])
+                await ch[IS_FLUSHING];
+            else
+                finish(ch);
         })();
     }
 
@@ -479,7 +421,7 @@ export default class Channel {
         when the channel has fully ended.
     */
     static done(ch: Channel) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             if (ch.state === STATES.ENDED)
                 return resolve();
             else
@@ -534,15 +476,14 @@ export default class Channel {
             (async() => {
                 while (running) {
                     let val = await parent.take();
-                    if (val === Channel.DONE) {
+                    if (val === ACTIONS.DONE) {
                         if (parent[SHOULD_CLOSE]) {
                             for (let channel of parent.pipeline)
                                 channel.close(true);
                         }
                         break;
                     }
-                    /* eslint no-loop-func: 0 */
-                    await* parent.pipeline.map(x => x.put(val));
+                    await* parent.pipeline.map(x => x.put(val)); // eslint-disable-line no-loop-func
                 }
             })();
             parent[ACTIONS.CANCEL] = () => { running = false; };

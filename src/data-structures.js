@@ -90,7 +90,6 @@ export class FixedStack extends Stack {
         return this.length >= this[SIZE];
     }
 }
-// FixedStack[Symbol.toStringTag] = 'FixedStack';
 
 export class Queue extends Data {
     constructor() {
@@ -113,7 +112,20 @@ export class Queue extends Data {
         return this[ARR][0];
     }
 }
-// Queue[Symbol.toStringTag] = 'Queue'; // cheats! this is so Object.prototype.toString.call(Queue) returns '[object Queue]' (as expected?)
+
+export class List extends Queue {
+    constructor() {
+        super();
+    }
+
+    get [Symbol.toStringTag]() {
+        return 'List';
+    }
+
+    unshift(...vals) {
+        return this[ARR].unshift(...vals);
+    }
+}
 
 export class FixedQueue extends Queue {
     constructor(size = MAX_SIZE) {

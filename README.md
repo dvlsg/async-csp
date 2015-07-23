@@ -94,10 +94,10 @@ To create a `Channel` with a buffer size, pass in a `Number` as the first argume
     }
 
     async function takes(ch) {
-        await ch.take(); //=> this will cause the blocked ch.put(3) to resolve, and will return 1
-        await ch.take(); //=> this will resolve immediate, and return 2
-        await ch.take(); //=> this will resolve immedlately, and return 3
-        await ch.take(); //=> this will not resolve until another value is available on the channel
+        console.log(await ch.take()); //=> this will cause the blocked ch.put(3) to resolve, and will return 1
+        console.log(await ch.take()); //=> this will resolve immediate, and return 2
+        console.log(await ch.take()); //=> this will resolve immedlately, and return 3
+        console.log(await ch.take()); //=> this will not resolve until another value is available on the channel
     }
 
     let channel = new Channel(2);

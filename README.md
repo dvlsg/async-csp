@@ -62,13 +62,13 @@ npm install async-csp
 
 A `Channel` is a buffered pipe which makes use of `Promises` to handle the flow of data.
 
-To place a value on a `Channel`, you may use the method `put()`, and to take a value off of the channel, you may use the method `take()`.
+To place a value on a `Channel`, you may use the method `Channel#put()`, and to take a value off of the channel, you may use the method `Channel#take()`.
 
 ```js
 
 	import Channel from 'async-csp';
 	
-	let channel = new Channel();
+	let ch = new Channel();
 	await ch.put(1);
 	await ch.put(2);
 	await ch.put(3);
@@ -77,9 +77,9 @@ To place a value on a `Channel`, you may use the method `put()`, and to take a v
 	console.log(await ch.take()); //=> 3
 ```
 
-### Buffer
+### Buffering
 
-When a `Channel` is full, `put()` will not resolve until space on the buffer becomes available. When a `Channel` is empty, `take()` will not resolve until a value is available.
+When a `Channel` is full, `Channel#put()` will not resolve until space on the buffer becomes available. When a `Channel` is empty, `Channel#take()` will not resolve until a value is available.
 
 To create a `Channel` with a buffer size, pass in a `Number` as the first argument to the constructor.
 
@@ -87,26 +87,26 @@ To create a `Channel` with a buffer size, pass in a `Number` as the first argume
 	
 	import Channel, { timeout } from 'async-csp';
 	
-	async function puts(channel) {
-		await ch.put(1); //=> this will resolve immediately
-		await ch.put(2); //=> this will also resolve immediately
-		await ch.put(3); //=> this will block until another process takes a value from the Channel
-	}
+	async function puts(ch) {
+        await ch.put(1); //=> this will resolve immediately
+        await ch.put(2); //=> this will also resolve immediately
+        await ch.put(3); //=> this will block until another process takes a value from the Channel
+    }
 
-	async function takes(ch) {
-		await ch.take(); //=> this will cause the blocked ch.put(3) to resolve, and will return 1
-		await ch.take(); //=> this will resolve immediate, and return 2
-		await ch.take(); //=> this will resolve immedlately, and return 3
-		await ch.take(); //=> this will not resolve until another value is available on the channel
-	}
+    async function takes(ch) {
+        await ch.take(); //=> this will cause the blocked ch.put(3) to resolve, and will return 1
+        await ch.take(); //=> this will resolve immediate, and return 2
+        await ch.take(); //=> this will resolve immedlately, and return 3
+        await ch.take(); //=> this will not resolve until another value is available on the channel
+    }
 
-	let channel = new Channel(2);
-	puts(channel);
-	await timeout(1000); // this is a helper method which will resolve after the given milliseconds
-	takes(channel);
+    let channel = new Channel(2);
+    puts(channel);
+    await timeout(100); // this is a helper method which will resolve after the given milliseconds
+    takes(channel);
 ```
 
-### Transform
+### Transforming
 
 When constructing a `Channel`, you can pass in a callback to transform values as they placed onto the buffer.
 
@@ -118,9 +118,9 @@ When constructing a `Channel`, you can pass in a callback to transform values as
 	await ch.put(2);
 	await ch.put(3);
 
-	await ch.take(); //=> 2
-	await ch.take(); //=> 4
-	await ch.take(); //=> 6
+	console.log(await ch.take()); //=> 2
+	console.log(await ch.take()); //=> 4
+	console.log(await ch.take()); //=> 6
 ```
 
 If values should be dropped from the `Channel`, simply return `undefined` from the transform callback.
@@ -137,8 +137,8 @@ If values should be dropped from the `Channel`, simply return `undefined` from t
     await ch.put(3);
     await ch.put(4);
 
-    await ch.take(); //=> 3
-    await ch.take(); //=> 4
+    console.log(await ch.take()); //=> 3
+    console.log(await ch.take()); //=> 4
 ```
 
 If a transform should take a single value and expand it into multiple values, then the `push` parameter can be used with the transform callback.
@@ -152,54 +152,75 @@ Note that when using this method, any values must be sent through `push`. Any va
         push(x + 1);
     });
 
-	await ch.put(1);
-	await ch.put(3);
+    await ch.put(1);
+    await ch.put(3);
 
-	await ch.take(); //=> 1
-	await ch.take(); //=> 2
-	await ch.take(); //=> 3
-	await ch.take(); //=> 4
+    console.log(await ch.take()); //=> 1
+    console.log(await ch.take()); //=> 2
+    console.log(await ch.take()); //=> 3
+    console.log(await ch.take()); //=> 4
 ```
 
-If a transform should work asynchronously, simply use a third parameter with the transform callback to signify that the transform has finished executing.
+If the transform needs to work asynchronously, there are two ways to accomplish this.
+
+The first is to use a third parameter with the transform callback, and execute it to signify that the transform has finished.
 
 ```js
 
 	let ch = new Channel((x, push, done) => {
-		push(x);
-		setTimeout(() => {
-			push(x + 1);
-			done();
-		}, 500);
-	});
+        push(x);
+        setTimeout(() => {
+            push(x + 1);
+            done();
+        }, 100);
+    });
 
-	await ch.put(1);
-	await ch.put(2);
+    await ch.put(1);
+    await ch.put(3);
 
-	await ch.take(); //=> 1
-	await ch.take(); //=> 2
-	await ch.take(); //=> 3
-	await ch.take(); //=> 4
+    console.log(await ch.take()); //=> 1
+    console.log(await ch.take()); //=> 2
+    console.log(await ch.take()); //=> 3
+    console.log(await ch.take()); //=> 4
 ```
 
-### Pipe
+The second is to declare the transform as `async` or to return a `Promise`.
+
+```js
+
+	let ch = new Channel(async(x, push) => {
+        push(x);
+        await timeout(100);
+        push(x + 1);
+    });
+
+    await ch.put(1);
+    await ch.put(3);
+
+    console.log(await ch.take()); //=> 1
+    console.log(await ch.take()); //=> 2
+    console.log(await ch.take()); //=> 3
+    console.log(await ch.take()); //=> 4
+```
+
+### Channel#pipe
 
 Similarly to `Streams`, `Channels` can be piped from one to another.
 
 ```js
 
 	let ch1 = new Channel();
-	let ch2 = new Channel();
-	
-	ch1.pipe(ch2);
-	
-	await ch1.put(1);
-	await ch1.put(2);
-	await ch1.put(3);
-	
-	await ch2.take(); //=>  1
-	await ch2.take(); //=>  2
-	await ch2.take(); //=>  3
+    let ch2 = new Channel();
+    
+    ch1.pipe(ch2);
+    
+    await ch1.put(1);
+    await ch1.put(2);
+    await ch1.put(3);
+    
+    console.log(await ch2.take()); //=>  1
+    console.log(await ch2.take()); //=>  2
+    console.log(await ch2.take()); //=>  3
 ```
 
 `Channels` can be piped to multiple destinations. In this case, all downstream `Channels` will receive every value from upstream.
@@ -207,42 +228,42 @@ Similarly to `Streams`, `Channels` can be piped from one to another.
 ```js
 
 	let ch1 = new Channel();
-	let ch2 = new Channel();
-	let ch3 = new Channel();
-	
-	ch1.pipe(ch2, ch3);
-	
-	await ch1.put(1);
-	await ch1.put(2);
-	await ch1.put(3);
-	
-	await ch2.take(); //=>  1
-	await ch2.take(); //=>  2
-	await ch2.take(); //=>  3
+    let ch2 = new Channel();
+    let ch3 = new Channel();
+    
+    ch1.pipe(ch2, ch3);
+    
+    await ch1.put(1);
+    await ch1.put(2);
+    await ch1.put(3);
+    
+    console.log(await ch2.take()); //=>  1
+    console.log(await ch2.take()); //=>  2
+    console.log(await ch2.take()); //=>  3
 
-	await ch3.take(); //=>  1
-	await ch3.take(); //=>  2
-	await ch3.take(); //=>  3
+    console.log(await ch3.take()); //=>  1
+    console.log(await ch3.take()); //=>  2
+    console.log(await ch3.take()); //=>  3
 ```
 
-### Merge
+### Channel#merge
 
 Merging is a form of automated piping from multiple `Channels` into a single, new `Channel`.
 
 ```js
 
 	let ch1 = new Channel();
-	let ch2 = new Channel();
-	let ch3 = Channel.merge(ch1, ch2);
-	
-	await ch1.put(1);
-	await ch2.put(2);
+    let ch2 = new Channel();
+    let ch3 = ch1.merge(ch2); // or Channel.merge(ch1, ch2)
+    
+    await ch1.put(1);
+    await ch2.put(2);
 
-	await ch3.take(); //=> 1
-	await ch3.take(); //=> 2
+    console.log(await ch3.take()); //=> 1
+    console.log(await ch3.take()); //=> 2
 ```
 
-### Close
+### Channel#close
 
 `Channels` have 3 states: open, closed, and ended. An open `Channel` can be written to, a closed `Channel` can no longer be written to, and an ended `Channel` is both closed and empty.
 
@@ -251,36 +272,38 @@ To signify that a `Channel` will no longer have data written, execute `close`. D
 ```js
 
 	let ch1 = new Channel();
-	
-	await ch1.put(1);
-	await ch1.put(2);
+    
+    await ch1.put(1);
+    await ch1.put(2);
 
-	ch1.close();
+    ch1.close();
 
-	await ch3.put(3); // resolves immediately with value of Channel.DONE
+    await ch1.put(3); // resolves immediately with value of Channel.DONE
 
-	await ch1.take(); //=> 1
-	await ch1.take(); //=> 2
-	await ch1.take(); //=> Channel.DONE
+    console.log(await ch1.take()); //=> 1
+    console.log(await ch1.take()); //=> 2
+    console.log(await ch1.take()); //=> Channel.DONE
 ```
 
-If `Channels` are piped together, and you want the entire pipeline to close, simply pass `true` as an argument to `close`.
+If `Channels` are piped together, and you want the entire pipeline to close, simply pass `true` as an argument to `Channel#close`.
 
 ```js
 
 	let ch1 = new Channel();
-	let ch2 = new Channel();
-	ch1.pipe(ch2);
+    let ch2 = new Channel();
+    ch1.pipe(ch2);
 
-	await ch1.put(1);
-	await ch1.put(2);
-	
-	ch1.close(true);
+    await ch1.put(1);
+    await ch1.put(2);
+    
+    ch1.close(true);
 
-	await ch2.take(); //=> 1
-	await ch2.take(); //=> 2
-	await ch2.take(); //=> Channel.DONE
+    console.log(await ch2.take()); //=> 1
+    console.log(await ch2.take()); //=> 2
+    console.log(await ch2.take()); //=> Channel.DONE
 ```
+
+### Channel#done
 
 In order to wait for a channel to be ended (closed and empty), await the resolution of `done`.
 

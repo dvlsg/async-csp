@@ -310,3 +310,61 @@ ch.close();
 
 await ch.done(); // will not resolve until the async IIFE takes both values from the channel
 ```
+
+### Channel#consume
+
+If you would like to execute a callback as soon as values become available on the `Channel`, you may add a callback using `Channel#consume`.
+
+```js
+let ch = new Channel();
+ch.consume(x => {
+    console.log(x);
+});
+
+await ch.put(1);
+await ch.put(2);
+await ch.put(3);
+await ch.put(4);
+
+// console logs
+//=> 1
+//=> 2
+//=> 3
+//=> 4
+```
+
+`Channel#consume` can also be handled asynchronously.
+
+```js
+let ch = new Channel();
+ch.consume(async x => {
+    await timeout(1000);
+    console.log(x);
+});
+
+await ch.put(1);
+await ch.put(2);
+await ch.put(3);
+await ch.put(4);
+
+// console logs, once a second
+//=> 1
+//=> 2
+//=> 3
+//=> 4
+```
+
+### Channel#produce
+
+Similar to `Channel#consume`, `Channel#produce` will put returned values onto the `Channel` as soon as space becomes available.
+
+```js
+let ch = new Channel();
+let counter = 0;
+ch.produce(() => ++counter);
+
+console.log(await ch.take()); //=> 1
+console.log(await ch.take()); //=> 2
+console.log(await ch.take()); //=> 3
+console.log(await ch.take()); //=> 4
+```

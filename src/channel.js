@@ -395,11 +395,14 @@ export default class Channel {
     {
         ch[IS_CONSUMING] = true;
         (async() => {
+            let taking = Channel.take(ch);
             while (ch[IS_CONSUMING]) {
-                let val = await Channel.take(ch);
+                let val = await taking;
                 if (val === ACTIONS.DONE)
                     break;
-                await consumer(val);
+                let consuming = consumer(val);
+                taking = Channel.take(ch);
+                await consuming;
             }
             ch[IS_CONSUMING] = false;
             if (ch[IS_FLUSHING])

@@ -44,8 +44,9 @@ function expose(e: Error) {
     which are waiting for the end of the channel.
 */
 function finish(ch: Channel) {
-    ch.state = STATES.ENDED;
-    for (let waiting of ch.waiting)
+    ch[STATE] = STATES.ENDED;
+    let waiting;
+    while (waiting = ch.waiting.shift()) // eslint-disable-line no-cond-assign
         setImmediate(waiting);
 }
 
@@ -53,28 +54,22 @@ function finish(ch: Channel) {
     Flushes out any remaining takes from the channel
     by sending them the value of `ACTIONS.DONE`.
 */
-function flush(ch: Channel) {
+async function flush(ch: Channel) {
     if (!ch.empty())
         // this error is never expected to be thrown
         // just a sanity check during development
         throw new Error('Attempted to execute flush(Channel) on a non-empty channel!');
     if (ch[IS_FLUSHING])
-        return ch[IS_FLUSHING];
-    ch[IS_FLUSHING] = new Promise((resolve) => {
-        let take, takes = [];
-        while (take = ch.takes.shift())  // eslint-disable-line no-cond-assign
-            takes.push(take(ACTIONS.DONE));
-        return Promise.all(takes).then(() => { //eslint-disable-line consistent-return
-            // silly compatibility stuff with Channel.consume()
-            // up for refactor in the future, but works for now.
-            ch[IS_FLUSHING] = null; // scary.
-            setImmediate(resolve); // best spot for this?
-            if (!ch[IS_CONSUMING])
-                return finish(ch);
-            // else consumer is expected to finish when completed
-        });
-    });
-    return ch[IS_FLUSHING];
+        return;
+    ch[IS_FLUSHING] = true;
+    let take,
+        takes = [];
+    while (take = ch.takes.shift()) // eslint-disable-line no-cond-assign
+        takes.push(take(ACTIONS.DONE));
+    await* takes;
+    if (!ch[IS_CONSUMING])
+        finish(ch);
+    ch[IS_FLUSHING] = false;
 }
 
 async function _slide(ch: Channel) {
@@ -96,20 +91,14 @@ async function _slide(ch: Channel) {
 
 async function slide(ch: Channel) {
     if (ch[IS_SLIDING])
-        return ch[IS_SLIDING];
-    // boo, deferred pattern, but we need to await for an unknown number of times.
-    // consider something else in the future. maybe make _slide directly recursive with a final resolve?
-    let deferred = new Promise((res) => { // eslint-disable-line no-unused-vars
-        ch[IS_SLIDING] = res;
-    });
+        return;
+    ch[IS_SLIDING] = true;
     await _slide(ch);
     while ((!ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty())) // performance concern?
         await _slide(ch);
-    let resolve = ch[IS_SLIDING];
-    ch[IS_SLIDING] = null;
-    resolve();
-    if (ch[STATE] === STATES.CLOSED && ch.buf.empty() && ch.puts.empty())
-        await flush(ch);
+    if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && ch.buf.empty() && ch.puts.empty())
+        flush(ch);
+    ch[IS_SLIDING] = false;
 }
 
 export function timeout(delay = 0) {
@@ -225,7 +214,7 @@ export default class Channel {
         ch.state = STATES.CLOSED;
         if (all)
             ch[SHOULD_CLOSE] = true;
-        return slide(ch).then(() => flush(ch));
+        slide(ch);
     }
 
     /*

@@ -1,12 +1,12 @@
-'use strict';
+"use strict";
 
 var _createClass = require('babel-runtime/helpers/create-class')['default'];
 
 var _classCallCheck = require('babel-runtime/helpers/class-call-check')['default'];
 
-var _inherits = require('babel-runtime/helpers/inherits')['default'];
-
 var _get = require('babel-runtime/helpers/get')['default'];
+
+var _inherits = require('babel-runtime/helpers/inherits')['default'];
 
 var _Symbol$iterator = require('babel-runtime/core-js/symbol/iterator')['default'];
 
@@ -68,24 +68,24 @@ var Data = (function () {
     }], [{
         key: 'construct',
         value: function construct() {
-            return _Object$create(this.constructor); // good? bad? even works?
-            // return new Data(); // can we make `Data` dynamic so inherited classes can use this properly?
+            return _Object$create(this.constructor);
         }
     }]);
 
     return Data;
-})();
-
+})()
 // Data[Symbol.toStringTag] = 'Data';
 
+;
+
 var Stack = (function (_Data) {
+    _inherits(Stack, _Data);
+
     function Stack() {
         _classCallCheck(this, Stack);
 
         _get(Object.getPrototypeOf(Stack.prototype), 'constructor', this).call(this);
     }
-
-    _inherits(Stack, _Data);
 
     _createClass(Stack, [{
         key: 'push',
@@ -100,7 +100,7 @@ var Stack = (function (_Data) {
     }, {
         key: 'peek',
         value: function peek() {
-            return this[ARR][this.length - 1]; // super or `this`?
+            return this[ARR][this.length - 1];
         }
     }, {
         key: _Symbol$toStringTag,
@@ -114,19 +114,17 @@ var Stack = (function (_Data) {
 
 exports.Stack = Stack;
 
-// Stack[Symbol.toStringTag] = 'Stack';
-
 var FixedStack = (function (_Stack) {
+    _inherits(FixedStack, _Stack);
+
     function FixedStack() {
-        var size = arguments[0] === undefined ? MAX_SIZE : arguments[0];
+        var size = arguments.length <= 0 || arguments[0] === undefined ? MAX_SIZE : arguments[0];
 
         _classCallCheck(this, FixedStack);
 
         _get(Object.getPrototypeOf(FixedStack.prototype), 'constructor', this).call(this);
         this[SIZE] = size;
     }
-
-    _inherits(FixedStack, _Stack);
 
     _createClass(FixedStack, [{
         key: 'push',
@@ -156,13 +154,13 @@ var FixedStack = (function (_Stack) {
 exports.FixedStack = FixedStack;
 
 var Queue = (function (_Data2) {
+    _inherits(Queue, _Data2);
+
     function Queue() {
         _classCallCheck(this, Queue);
 
         _get(Object.getPrototypeOf(Queue.prototype), 'constructor', this).call(this);
     }
-
-    _inherits(Queue, _Data2);
 
     _createClass(Queue, [{
         key: 'push',
@@ -192,13 +190,13 @@ var Queue = (function (_Data2) {
 exports.Queue = Queue;
 
 var List = (function (_Queue) {
+    _inherits(List, _Queue);
+
     function List() {
         _classCallCheck(this, List);
 
         _get(Object.getPrototypeOf(List.prototype), 'constructor', this).call(this);
     }
-
-    _inherits(List, _Queue);
 
     _createClass(List, [{
         key: 'unshift',
@@ -220,16 +218,16 @@ var List = (function (_Queue) {
 exports.List = List;
 
 var FixedQueue = (function (_Queue2) {
+    _inherits(FixedQueue, _Queue2);
+
     function FixedQueue() {
-        var size = arguments[0] === undefined ? MAX_SIZE : arguments[0];
+        var size = arguments.length <= 0 || arguments[0] === undefined ? MAX_SIZE : arguments[0];
 
         _classCallCheck(this, FixedQueue);
 
         _get(Object.getPrototypeOf(FixedQueue.prototype), 'constructor', this).call(this);
         this[SIZE] = size;
     }
-
-    _inherits(FixedQueue, _Queue2);
 
     _createClass(FixedQueue, [{
         key: 'push',
@@ -258,5 +256,3 @@ var FixedQueue = (function (_Queue2) {
 })(Queue);
 
 exports.FixedQueue = FixedQueue;
-
-// FixedQueue[Symbol.toStringTag] = 'FixedQueue';

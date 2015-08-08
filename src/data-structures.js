@@ -14,8 +14,7 @@ class Data {
     }
 
     static construct() {
-        return Object.create(this.constructor); // good? bad? even works?
-        // return new Data(); // can we make `Data` dynamic so inherited classes can use this properly?
+        return Object.create(this.constructor);
     }
 
     get [Symbol.toStringTag]() {
@@ -62,10 +61,9 @@ export class Stack extends Data {
     }
 
     peek() {
-        return this[ARR][this.length - 1]; // super or `this`?
+        return this[ARR][this.length - 1];
     }
 }
-// Stack[Symbol.toStringTag] = 'Stack';
 
 export class FixedStack extends Stack {
     constructor(size = MAX_SIZE) {
@@ -150,4 +148,3 @@ export class FixedQueue extends Queue {
         return this.length >= this[SIZE];
     }
 }
-// FixedQueue[Symbol.toStringTag] = 'FixedQueue';

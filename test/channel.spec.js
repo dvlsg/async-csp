@@ -566,16 +566,18 @@ describe('Channel', function() {
             let ch1 = new Channel(4);
             let ch2 = new Channel(4);
             let ch3 = new Channel(4);
+            let ch4 = new Channel(4);
             for (let i = 0; i < 4; i++)
                 await ch1.put(i);
-            ch1.pipe(ch2).pipe(ch3);
+            ch1.pipe(ch2).pipe(ch3).pipe(ch4);
             ch1.close(true);
             for (let i = 0; i < 4; i++)
-                assert.equal(await ch3.take(), i);
-            await ch3.done();
+                assert.equal(await ch4.take(), i);
+            await ch4.done();
             assert.equal(ch1.state, STATES.ENDED);
             assert.equal(ch2.state, STATES.ENDED);
             assert.equal(ch3.state, STATES.ENDED);
+            assert.equal(ch4.state, STATES.ENDED);
         });
     });
 

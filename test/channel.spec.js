@@ -65,7 +65,53 @@ describe('Channel', function() {
         });
     });
 
-    describe('size', () => {
+    describe('.from()', () => {
+
+        it('can initialize a channel from an array', async() => {
+            let arr = [1, 2, 3, 4, 5];
+            let ch = Channel.from([1, 2, 3, 4, 5]);
+            assert.equal(arr.length, ch.buf.length);
+            for (let val of arr)
+                assert.equal(await ch.take(), val);
+            assert.true(ch.empty());
+            await ch.done();
+            assert.equal(ch.state, STATES.ENDED);
+        });
+
+        it('can initialize a channel from a generator', async() => {
+            let gen = function*() { yield 1; yield 2; yield 3; };
+            let ch = Channel.from(gen());
+            assert.equal(ch.buf.length, 3);
+            let val = null;
+            let i = 1;
+            while((val = await ch.take()) !== Channel.DONE)
+                assert.equal(val, i++);
+        });
+
+        it('can initialize a channel from any iterable', async() => {
+            let obj = {
+                *[Symbol.iterator]() { yield 4; yield 5; yield 6; }
+            };
+            let ch = Channel.from(obj);
+            assert.equal(ch.buf.length, 3);
+            let val = null;
+            let i = 4;
+            while((val = await ch.take()) !== Channel.DONE)
+                assert.equal(val, i++);
+        });
+
+        it('should initialize the channel as closed', async() => {
+            let ch = Channel.from([1, 2, 3]);
+            assert.equal(ch.state, STATES.CLOSED);
+        });
+
+        it('can leave the channel open by flag', async() => {
+            let ch = Channel.from([1, 2, 3], true);
+            assert.equal(ch.state, STATES.OPEN);
+        });
+    });
+
+    describe('#size', () => {
 
         it('should equal Channel.DEFAULT_SIZE with default constructor', () => {
             let ch = new Channel();
@@ -78,7 +124,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('length', () => {
+    describe('#length', () => {
 
         it('should equal buffer length plus puts length', async() => {
             let ch = new Channel(2);
@@ -96,7 +142,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('empty', () => {
+    describe('#empty()', () => {
 
         it('should be true when buffer and puts queue are empty', async() => {
             let ch = new Channel();
@@ -153,7 +199,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('put', () => {
+    describe('#put()', () => {
 
         it('should return a promise', async() => {
             let ch = new Channel();
@@ -226,7 +272,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('take', () => {
+    describe('#take()', () => {
 
         it('should return a promise', async() => {
             let ch = new Channel();
@@ -271,53 +317,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('from', () => {
-
-        it('can initialize a channel from an array', async() => {
-            let arr = [1, 2, 3, 4, 5];
-            let ch = Channel.from([1, 2, 3, 4, 5]);
-            assert.equal(arr.length, ch.buf.length);
-            for (let val of arr)
-                assert.equal(await ch.take(), val);
-            assert.true(ch.empty());
-            await ch.done();
-            assert.equal(ch.state, STATES.ENDED);
-        });
-
-        it('can initialize a channel from a generator', async() => {
-            let gen = function*() { yield 1; yield 2; yield 3; };
-            let ch = Channel.from(gen());
-            assert.equal(ch.buf.length, 3);
-            let val = null;
-            let i = 1;
-            while((val = await ch.take()) !== Channel.DONE)
-                assert.equal(val, i++);
-        });
-
-        it('can initialize a channel from any iterable', async() => {
-            let obj = {
-                *[Symbol.iterator]() { yield 4; yield 5; yield 6; }
-            };
-            let ch = Channel.from(obj);
-            assert.equal(ch.buf.length, 3);
-            let val = null;
-            let i = 4;
-            while((val = await ch.take()) !== Channel.DONE)
-                assert.equal(val, i++);
-        });
-
-        it('should initialize the channel as closed', async() => {
-            let ch = Channel.from([1, 2, 3]);
-            assert.equal(ch.state, STATES.CLOSED);
-        });
-
-        it('can leave the channel open by flag', async() => {
-            let ch = Channel.from([1, 2, 3], true);
-            assert.equal(ch.state, STATES.OPEN);
-        });
-    });
-
-    describe('close', () => {
+    describe('#close()', () => {
 
         it('should close a non-empty channel', async() => {
             let ch = new Channel();
@@ -348,7 +348,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('done', () => {
+    describe('#done()', () => {
 
         it('should return a promise', async() => {
             let ch = new Channel();
@@ -375,7 +375,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('pipe', () => {
+    describe('#pipe()', () => {
 
         it('should pipe values from one channel to another channel', async() => {
             let ch1 = new Channel();
@@ -581,7 +581,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('unpipe', () => {
+    describe('#unpipe()', () => {
 
         it('should remove a channel from a pipeline', async() => {
             let ch1 = new Channel(2);
@@ -680,7 +680,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('merge', () => {
+    describe('#merge()', () => {
 
         it('should put values from multiple channels onto a new channel', async() => {
             let ch1 = new Channel();
@@ -692,10 +692,9 @@ describe('Channel', function() {
             assert.equal(await ch3.take(), 1);
             assert.equal(await ch3.take(), 2);
         });
-        // any other tests?
     });
 
-    describe('produce', () => {
+    describe('#produce()', () => {
 
         it('should automatically produce values when space is available', async() => {
             let ch = new Channel(1);
@@ -732,7 +731,7 @@ describe('Channel', function() {
         });
     });
 
-    describe('consume', () => {
+    describe('#consume()', () => {
 
         it('can consume values synchronously', async() => {
             let ch = new Channel();
@@ -911,7 +910,7 @@ describe('Channel', function() {
 
     });
 
-    describe('general use', () => {
+    describe('general use', function() {
 
         it('should not block indefinitely with synchronous produce + consume', async() => {
             let ch = new Channel();

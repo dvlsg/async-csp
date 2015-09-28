@@ -47,7 +47,7 @@ function finish(ch: Channel) {
     ch[STATE] = STATES.ENDED;
     let waiting;
     while (waiting = ch.waiting.shift()) // eslint-disable-line no-cond-assign
-        setImmediate(waiting);
+        waiting();
 }
 
 /*
@@ -89,6 +89,23 @@ async function _slide(ch: Channel) {
     }
 }
 
+async function _slideTail(ch: Channel) {
+    while (!ch.buf.full() && !ch.tails.empty()) {
+        let tail = ch.tails.shift();
+        await tail();
+        if (!ch.takes.empty() && !ch.buf.empty()) {
+            let val = ch.buf.shift();
+            let take = ch.takes.shift();
+            take(val);
+        }
+    }
+    while (!ch.takes.empty() && !ch.buf.empty()) {
+        let val = ch.buf.shift();
+        let take = ch.takes.shift();
+        take(val);
+    }
+}
+
 async function slide(ch: Channel) {
     if (ch[IS_SLIDING])
         return;
@@ -96,9 +113,73 @@ async function slide(ch: Channel) {
     await _slide(ch);
     while ((!ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty())) // performance concern?
         await _slide(ch);
-    if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && ch.buf.empty() && ch.puts.empty())
+    if(ch[STATE] === STATES.CLOSED && !ch.tails.empty() && ch.buf.empty() && ch.puts.empty())
+        await _slideTail(ch);
+    if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && ch.buf.empty() && ch.puts.empty() && ch.tails.empty())
         flush(ch);
     ch[IS_SLIDING] = false;
+}
+
+async function _transform(ch: Channel, val: any, target: List) {
+    return new Promise((resolve, reject) => {
+        if (ch.state !== STATES.OPEN)
+            return resolve(ACTIONS.DONE);
+        if (ch.transform instanceof Function) {
+            if (ch.transform.length === 1) {
+                target.push(async () => {
+                    let transformed = await ch.transform(val); // what about errors in here?
+                    if (typeof transformed !== 'undefined')
+                        ch.buf.push(transformed);
+                    return resolve();
+                });
+            }
+            else { // transform length of either 2 or 3
+                let accepted = [];
+                let done = () => {
+                    let promises = [];
+                    for (let i = accepted.length - 1; i >= 0; i--) {
+                        let acc = accepted[i];
+                        let p = new Promise(res => { // eslint-disable-line no-loop-func
+                            target.unshift(async() => { // eslint-disable-line no-loop-func
+                                ch.buf.push(acc);
+                                res();
+                            });
+                        });
+                        promises.push(p);
+                    }
+                    Promise.all(promises)
+                        .then(resolve)
+                        .catch(reject);
+                    slide(ch); // necessary, but why?
+                };
+                if (ch.transform.length === 2) {
+                    target.push(async() => {
+                        await ch.transform(val, acc => {
+                            if (typeof acc !== 'undefined')
+                                accepted.push(acc);
+                        });
+                        done();
+                    });
+                }
+                else {
+                    target.push(async() => {
+                        ch.transform(val, acc => {
+                            if (typeof acc !== 'undefined')
+                                accepted.push(acc);
+                        }, done);
+                    });
+                }
+            }
+        }
+        else {
+            // no transform method available
+            target.push(async() => {
+                ch.buf.push(val);
+                return resolve();
+            });
+        }
+        slide(ch);
+    });
 }
 
 export function timeout(delay = 0) {
@@ -151,6 +232,7 @@ export default class Channel {
                 transform = argv[1];
         }
         this.puts      = new List();
+        this.tails     = new List();
         this.takes     = new List();
         this.buf       = new FixedQueue(size);
         this.transform = transform;
@@ -246,65 +328,7 @@ export default class Channel {
         onto Channel.puts to be resolved when buffer space is available.
     */
     static put(ch: Channel, val: any) {
-        return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
-            if (ch.state !== STATES.OPEN)
-                return resolve(ACTIONS.DONE);
-            if (ch.transform instanceof Function) {
-                if (ch.transform.length === 1) {
-                    ch.puts.push(async () => {
-                        let transformed = await ch.transform(val);
-                        if (typeof transformed !== 'undefined')
-                            ch.buf.push(transformed);
-                        return resolve();
-                    });
-                }
-                else { // transform length of either 2 or 3
-                    let accepted = [];
-                    let done = () => {
-                        let promises = [];
-                        for (let i = accepted.length - 1; i >= 0; i--) {
-                            let acc = accepted[i];
-                            let p = new Promise(res => { // eslint-disable-line no-loop-func
-                                ch.puts.unshift(async() => { // eslint-disable-line no-loop-func
-                                    ch.buf.push(acc);
-                                    res();
-                                });
-                            });
-                            promises.push(p);
-                        }
-                        Promise.all(promises)
-                            .then(resolve)
-                            .catch(reject);
-                        slide(ch); // necessary, but why?
-                    };
-                    if (ch.transform.length === 2) {
-                        ch.puts.push(async() => {
-                            await ch.transform(val, acc => {
-                                if (typeof acc !== 'undefined')
-                                    accepted.push(acc);
-                            });
-                            done();
-                        });
-                    }
-                    else {
-                        ch.puts.push(async() => {
-                            ch.transform(val, acc => {
-                                if (typeof acc !== 'undefined')
-                                    accepted.push(acc);
-                            }, done);
-                        });
-                    }
-                }
-            }
-            else {
-                // no transform method available
-                ch.puts.push(async() => {
-                    ch.buf.push(val);
-                    return resolve();
-                });
-            }
-            slide(ch);
-        });
+        return _transform(ch, val, ch.puts);
     }
 
     /*
@@ -334,6 +358,17 @@ export default class Channel {
     */
     take() {
         return Channel.take(this);
+    }
+
+    static tail(ch: Channel, val: any) {
+        return _transform(ch, val, ch.tails);
+    }
+
+    /*
+        Returns Channel.tail for `this`.
+    */
+    tail(val: any) {
+        return Channel.tail(this, val);
     }
 
     /*

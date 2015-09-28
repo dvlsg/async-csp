@@ -75,7 +75,7 @@ function finish(ch) {
     ch[STATE] = STATES.ENDED;
     var waiting = undefined;
     while (waiting = ch.waiting.shift()) // eslint-disable-line no-cond-assign
-    setImmediate(waiting);
+    waiting();
 }
 
 /*
@@ -161,6 +161,45 @@ function _slide(ch) {
     }, null, this);
 }
 
+function _slideTail(ch) {
+    var tail, val, take;
+    return _regeneratorRuntime.async(function _slideTail$(context$1$0) {
+        while (1) switch (context$1$0.prev = context$1$0.next) {
+            case 0:
+                if (!(!ch.buf.full() && !ch.tails.empty())) {
+                    context$1$0.next = 7;
+                    break;
+                }
+
+                tail = ch.tails.shift();
+                context$1$0.next = 4;
+                return _regeneratorRuntime.awrap(tail());
+
+            case 4:
+                if (!ch.takes.empty() && !ch.buf.empty()) {
+                    val = ch.buf.shift();
+                    take = ch.takes.shift();
+
+                    take(val);
+                }
+                context$1$0.next = 0;
+                break;
+
+            case 7:
+                while (!ch.takes.empty() && !ch.buf.empty()) {
+                    val = ch.buf.shift();
+                    take = ch.takes.shift();
+
+                    take(val);
+                }
+
+            case 8:
+            case 'end':
+                return context$1$0.stop();
+        }
+    }, null, this);
+}
+
 function slide(ch) {
     return _regeneratorRuntime.async(function slide$(context$1$0) {
         while (1) switch (context$1$0.prev = context$1$0.next) {
@@ -191,10 +230,147 @@ function slide(ch) {
                 break;
 
             case 10:
-                if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && ch.buf.empty() && ch.puts.empty()) flush(ch);
+                if (!(ch[STATE] === STATES.CLOSED && !ch.tails.empty() && ch.buf.empty() && ch.puts.empty())) {
+                    context$1$0.next = 13;
+                    break;
+                }
+
+                context$1$0.next = 13;
+                return _regeneratorRuntime.awrap(_slideTail(ch));
+
+            case 13:
+                if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && ch.buf.empty() && ch.puts.empty() && ch.tails.empty()) flush(ch);
                 ch[IS_SLIDING] = false;
 
-            case 12:
+            case 15:
+            case 'end':
+                return context$1$0.stop();
+        }
+    }, null, this);
+}
+
+function _transform(ch, val, target) {
+    return _regeneratorRuntime.async(function _transform$(context$1$0) {
+        var _this = this;
+
+        while (1) switch (context$1$0.prev = context$1$0.next) {
+            case 0:
+                return context$1$0.abrupt('return', new _Promise(function (resolve, reject) {
+                    if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
+                    if (ch.transform instanceof Function) {
+                        if (ch.transform.length === 1) {
+                            target.push(function callee$2$0() {
+                                var transformed;
+                                return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
+                                    while (1) switch (context$3$0.prev = context$3$0.next) {
+                                        case 0:
+                                            context$3$0.next = 2;
+                                            return _regeneratorRuntime.awrap(ch.transform(val));
+
+                                        case 2:
+                                            transformed = context$3$0.sent;
+                                            // what about errors in here?
+                                            if (typeof transformed !== 'undefined') ch.buf.push(transformed);
+                                            return context$3$0.abrupt('return', resolve());
+
+                                        case 5:
+                                        case 'end':
+                                            return context$3$0.stop();
+                                    }
+                                }, null, _this);
+                            });
+                        } else {
+                            (function () {
+                                // transform length of either 2 or 3
+                                var accepted = [];
+                                var done = function done() {
+                                    var promises = [];
+
+                                    var _loop = function (i) {
+                                        var acc = accepted[i];
+                                        var p = new _Promise(function (res) {
+                                            // eslint-disable-line no-loop-func
+                                            target.unshift(function callee$6$0() {
+                                                return _regeneratorRuntime.async(function callee$6$0$(context$7$0) {
+                                                    while (1) switch (context$7$0.prev = context$7$0.next) {
+                                                        case 0:
+                                                            // eslint-disable-line no-loop-func
+                                                            ch.buf.push(acc);
+                                                            res();
+
+                                                        case 2:
+                                                        case 'end':
+                                                            return context$7$0.stop();
+                                                    }
+                                                }, null, _this);
+                                            });
+                                        });
+                                        promises.push(p);
+                                    };
+
+                                    for (var i = accepted.length - 1; i >= 0; i--) {
+                                        _loop(i);
+                                    }
+                                    _Promise.all(promises).then(resolve)['catch'](reject);
+                                    slide(ch); // necessary, but why?
+                                };
+                                if (ch.transform.length === 2) {
+                                    target.push(function callee$3$0() {
+                                        return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
+                                            while (1) switch (context$4$0.prev = context$4$0.next) {
+                                                case 0:
+                                                    context$4$0.next = 2;
+                                                    return _regeneratorRuntime.awrap(ch.transform(val, function (acc) {
+                                                        if (typeof acc !== 'undefined') accepted.push(acc);
+                                                    }));
+
+                                                case 2:
+                                                    done();
+
+                                                case 3:
+                                                case 'end':
+                                                    return context$4$0.stop();
+                                            }
+                                        }, null, _this);
+                                    });
+                                } else {
+                                    target.push(function callee$3$0() {
+                                        return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
+                                            while (1) switch (context$4$0.prev = context$4$0.next) {
+                                                case 0:
+                                                    ch.transform(val, function (acc) {
+                                                        if (typeof acc !== 'undefined') accepted.push(acc);
+                                                    }, done);
+
+                                                case 1:
+                                                case 'end':
+                                                    return context$4$0.stop();
+                                            }
+                                        }, null, _this);
+                                    });
+                                }
+                            })();
+                        }
+                    } else {
+                        // no transform method available
+                        target.push(function callee$2$0() {
+                            return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
+                                while (1) switch (context$3$0.prev = context$3$0.next) {
+                                    case 0:
+                                        ch.buf.push(val);
+                                        return context$3$0.abrupt('return', resolve());
+
+                                    case 2:
+                                    case 'end':
+                                        return context$3$0.stop();
+                                }
+                            }, null, _this);
+                        });
+                    }
+                    slide(ch);
+                }));
+
+            case 1:
             case 'end':
                 return context$1$0.stop();
         }
@@ -235,6 +411,7 @@ var Channel = (function () {
             if (arguments[1] && typeof arguments[1] === 'function') transform = arguments[1];
         }
         this.puts = new _dataStructuresJs.List();
+        this.tails = new _dataStructuresJs.List();
         this.takes = new _dataStructuresJs.List();
         this.buf = new _dataStructuresJs.FixedQueue(size);
         this.transform = transform;
@@ -302,6 +479,15 @@ var Channel = (function () {
         */
         value: function take() {
             return Channel.take(this);
+        }
+    }, {
+        key: 'tail',
+
+        /*
+            Returns Channel.tail for `this`.
+        */
+        value: function tail(val) {
+            return Channel.tail(this, val);
         }
 
         /*
@@ -492,123 +678,7 @@ var Channel = (function () {
     }, {
         key: 'put',
         value: function put(ch, val) {
-            var _this = this;
-
-            return new _Promise(function (resolve, reject) {
-                // eslint-disable-line no-unused-vars
-                if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
-                if (ch.transform instanceof Function) {
-                    if (ch.transform.length === 1) {
-                        ch.puts.push(function callee$3$0() {
-                            var transformed;
-                            return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
-                                while (1) switch (context$4$0.prev = context$4$0.next) {
-                                    case 0:
-                                        context$4$0.next = 2;
-                                        return _regeneratorRuntime.awrap(ch.transform(val));
-
-                                    case 2:
-                                        transformed = context$4$0.sent;
-
-                                        if (typeof transformed !== 'undefined') ch.buf.push(transformed);
-                                        return context$4$0.abrupt('return', resolve());
-
-                                    case 5:
-                                    case 'end':
-                                        return context$4$0.stop();
-                                }
-                            }, null, _this);
-                        });
-                    } else {
-                        (function () {
-                            // transform length of either 2 or 3
-                            var accepted = [];
-                            var done = function done() {
-                                var promises = [];
-
-                                var _loop = function (i) {
-                                    var acc = accepted[i];
-                                    var p = new _Promise(function (res) {
-                                        // eslint-disable-line no-loop-func
-                                        ch.puts.unshift(function callee$7$0() {
-                                            return _regeneratorRuntime.async(function callee$7$0$(context$8$0) {
-                                                while (1) switch (context$8$0.prev = context$8$0.next) {
-                                                    case 0:
-                                                        // eslint-disable-line no-loop-func
-                                                        ch.buf.push(acc);
-                                                        res();
-
-                                                    case 2:
-                                                    case 'end':
-                                                        return context$8$0.stop();
-                                                }
-                                            }, null, _this);
-                                        });
-                                    });
-                                    promises.push(p);
-                                };
-
-                                for (var i = accepted.length - 1; i >= 0; i--) {
-                                    _loop(i);
-                                }
-                                _Promise.all(promises).then(resolve)['catch'](reject);
-                                slide(ch); // necessary, but why?
-                            };
-                            if (ch.transform.length === 2) {
-                                ch.puts.push(function callee$4$0() {
-                                    return _regeneratorRuntime.async(function callee$4$0$(context$5$0) {
-                                        while (1) switch (context$5$0.prev = context$5$0.next) {
-                                            case 0:
-                                                context$5$0.next = 2;
-                                                return _regeneratorRuntime.awrap(ch.transform(val, function (acc) {
-                                                    if (typeof acc !== 'undefined') accepted.push(acc);
-                                                }));
-
-                                            case 2:
-                                                done();
-
-                                            case 3:
-                                            case 'end':
-                                                return context$5$0.stop();
-                                        }
-                                    }, null, _this);
-                                });
-                            } else {
-                                ch.puts.push(function callee$4$0() {
-                                    return _regeneratorRuntime.async(function callee$4$0$(context$5$0) {
-                                        while (1) switch (context$5$0.prev = context$5$0.next) {
-                                            case 0:
-                                                ch.transform(val, function (acc) {
-                                                    if (typeof acc !== 'undefined') accepted.push(acc);
-                                                }, done);
-
-                                            case 1:
-                                            case 'end':
-                                                return context$5$0.stop();
-                                        }
-                                    }, null, _this);
-                                });
-                            }
-                        })();
-                    }
-                } else {
-                    // no transform method available
-                    ch.puts.push(function callee$3$0() {
-                        return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
-                            while (1) switch (context$4$0.prev = context$4$0.next) {
-                                case 0:
-                                    ch.buf.push(val);
-                                    return context$4$0.abrupt('return', resolve());
-
-                                case 2:
-                                case 'end':
-                                    return context$4$0.stop();
-                            }
-                        }, null, _this);
-                    });
-                }
-                slide(ch);
-            });
+            return _transform(ch, val, ch.puts);
         }
     }, {
         key: 'take',
@@ -618,6 +688,11 @@ var Channel = (function () {
                 ch.takes.push(resolve);
                 slide(ch);
             });
+        }
+    }, {
+        key: 'tail',
+        value: function tail(ch, val) {
+            return _transform(ch, val, ch.tails);
         }
     }, {
         key: 'produce',

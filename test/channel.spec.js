@@ -317,6 +317,64 @@ describe('Channel', function() {
         });
     });
 
+    describe('#tail()', () => {
+
+        it('should return a promise', () => {
+            let ch = new Channel();
+            let tail = ch.tail();
+            assert.is(tail, Promise);
+        });
+
+        it('should append values to the end of the channel', async() => {
+            let ch = new Channel();
+            ch.tail(4);
+            ch.put(1);
+            ch.tail(5);
+            ch.put(2);
+            ch.put(3);
+            ch.close();
+            for (let i = 0; i < 5; i++)
+                assert.equal(await ch.take(), i + 1);
+        });
+
+        it('should keep state at closed until tail is emptied', async() => {
+            let ch = new Channel();
+            ch.tail(1);
+            ch.close();
+            assert.equal(ch.state, STATES.CLOSED);
+            await ch.take();
+            await ch.done();
+            assert.equal(ch.state, STATES.ENDED);
+        });
+
+        it('should use transforms', async() => {
+            let ch = new Channel(async x => x + 2);
+            ch.tail(1);
+            ch.tail(2);
+            ch.tail(3);
+            ch.close();
+            for (let i = 0; i < ch.tail.length; i++)
+                assert.equal(await ch.take(), i + 3);
+        });
+
+        it('should flush the channel once all values are taken', async() => {
+            let ch = new Channel();
+            ch.tail(1);
+            ch.tail(2);
+            let take1 = ch.take();
+            let take2 = ch.take();
+            let take3 = ch.take();
+            ch.close();
+            await ch.done();
+            let [val1, val2, val3] = await Promise.all([take1, take2, take3]);
+            assert.equal(ch.state, STATES.ENDED);
+            assert.equal(val1, 1);
+            assert.equal(val2, 2);
+            assert.equal(val3, Channel.DONE);
+        });
+
+    });
+
     describe('#close()', () => {
 
         it('should close a non-empty channel', async() => {

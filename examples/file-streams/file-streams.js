@@ -1,5 +1,9 @@
+/* eslint-disable camelcase */
+
+"use strict";
+
 import fs from 'fs';
-import Channel, {timeout} from '../../dist/channel.js';
+import Channel from '../../dist/channel.js';
 let log = console.log.bind(console);
 
 let input = './read.csv';
@@ -7,7 +11,7 @@ let output = './write.sql';
 
 function now() {
     let time = process.hrtime();
-    return ((time[0] * 1e9 + time[1]) / 1e6);
+    return (time[0] * 1e9 + time[1]) / 1e6;
 }
 
 export async function run() {
@@ -35,7 +39,7 @@ export async function run() {
 
     let prepend = 'INSERT INTO people (import_id, first_name, last_name, email, password) VALUES (';
     let append = ')\n';
-    let makeStatements = new Channel(8, obj => {
+    let makeStatements = new Channel(obj => {
         let out = [
             obj.id,
             `'${obj.first_name}'`,
@@ -53,7 +57,7 @@ export async function run() {
     fin.on('data', data => {
         // split input pipe on newlines
         let str = data.toString();
-        let lines = data.toString().split('\n');
+        let lines = str.split('\n');
         if (carry)
             lines[0] = carry + lines[0];
         for (let i = 0; i < lines.length - 1; i++) {
@@ -75,7 +79,9 @@ export async function run() {
         }
     });
 
-    makeArrays.pipe(makeObjects).pipe(makeStatements);
+    makeArrays
+        .pipe(makeObjects)
+        .pipe(makeStatements);
     await makeStatements.done();
     log(`Wrote statements to ${output}!`);
     let end = now();

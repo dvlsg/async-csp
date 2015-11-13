@@ -31,11 +31,11 @@
   "homepage": "https://github.com/dvlsg/async-csp",
   "devDependencies": {
     "babel-core": "^5.5.8",
-    "babel-eslint": "^3.1.23",
+    "babel-eslint": "^3.1.30",
     "del": "^1.2.0",
     "gulp": "^3.9.0",
     "gulp-babel": "^5.1.0",
-    "gulp-eslint": "^0.14.0",
+    "gulp-eslint": "^1.1.0",
     "gulp-mocha": "^2.1.1",
     "gulp-plumber": "^1.0.1",
     "mocha": "^2.2.5",

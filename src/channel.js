@@ -37,7 +37,9 @@ const IS_SLIDING = Symbol('channel_sliding');
     from a location that will not be eaten by an async throw.
 */
 function expose(e: Error) {
-    setTimeout(() => { throw e; });
+    setTimeout(() => {
+        throw e;
+    });
 }
 
 /*
@@ -46,7 +48,7 @@ function expose(e: Error) {
 */
 function finish(ch: Channel) {
     ch[STATE] = STATES.ENDED;
-    let waiting;
+    let waiting = null;
     while (waiting = ch.waiting.shift()) // eslint-disable-line no-cond-assign
         waiting();
 }
@@ -63,7 +65,7 @@ async function flush(ch: Channel) {
     if (ch[IS_FLUSHING])
         return;
     ch[IS_FLUSHING] = true;
-    let take,
+    let take = null,
         takes = [];
     while (take = ch.takes.shift()) // eslint-disable-line no-cond-assign
         takes.push(take(ACTIONS.DONE));
@@ -125,14 +127,14 @@ function wrap(val: any, transform: Function, resolve: Function) {
 async function _bufferedSlide(ch: Channel) {
     while (!ch.buf.empty() && !ch.takes.empty()) {
         let buf = ch.buf.shift();
-        let val;
+        let val = null;
         if (buf && buf.wrapped)
             val = await buf.wrapped();
         else
             val = buf; // this is a special case caused by `from`. can we get rid of the need for this?
         if (typeof val !== 'undefined') {
             if (val instanceof List) { // need a way to distinguish this as a "special" array return
-                let accepted = [...val];
+                let accepted = [ ...val ];
                 if (accepted.length === 0)
                     buf.resolve();
                 else if (accepted.length === 1) {
@@ -194,7 +196,7 @@ async function _slide(ch: Channel) {
         let val = await put.wrapped();
         if (typeof val !== 'undefined') {
             if (val instanceof List) { // need a way to distinguish this as a "special" array return
-                let accepted = [...val];
+                let accepted = [ ...val ];
                 if (accepted.length === 0)
                     put.resolve();
                 else if (accepted.length === 1) {
@@ -226,11 +228,9 @@ async function _slide(ch: Channel) {
 }
 
 function canSlide(ch: Channel) {
-    return (
-        ch.buf
-            ? (!ch.buf.full() && !ch.puts.empty()) || (!ch.takes.empty() && !ch.buf.empty())
-            : (!ch.takes.empty() && !ch.puts.empty())
-    );
+    return ch.buf
+        ? !ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty()
+        : !ch.takes.empty() && !ch.puts.empty();
 }
 
 async function slide(ch: Channel) {
@@ -294,7 +294,7 @@ export default class Channel {
             new Channel(8, x => x * 2) -> Buffered channel, with transform
     */
     constructor(... argv) {
-        let size;
+        let size = null;
         let transform = null;
         if (typeof argv[0] === 'function')
             transform = argv[0];
@@ -324,7 +324,7 @@ export default class Channel {
         placing all of the iterable's values onto that channel.
     */
     static from(iterable, keepOpen = false) {
-        let arr = [...iterable];
+        let arr = [ ...iterable ];
         let ch = new Channel(arr.length);
         for (let val of arr)
             ch.buf.push(val);
@@ -472,8 +472,7 @@ export default class Channel {
     static async produce(
           ch       : Channel
         , producer : Function
-    ): Function
-    {
+    ): Function {
         let spin = true;
         (async() => {
             try {
@@ -492,7 +491,9 @@ export default class Channel {
                 expose(e);
             }
         })();
-        return () => { spin = false; };
+        return () => {
+            spin = false;
+        };
     }
 
     /*
@@ -509,8 +510,7 @@ export default class Channel {
     static async consume(
           ch       : Channel
         , consumer : Function = () => {} // noop default
-    ): Function
-    {
+    ): Function {
         ch[IS_CONSUMING] = true;
         (async() => {
             let taking = Channel.take(ch);
@@ -545,8 +545,7 @@ export default class Channel {
         return new Promise((resolve) => {
             if (ch.state === STATES.ENDED)
                 return resolve();
-            else
-                ch.waiting.push(resolve);
+            ch.waiting.push(resolve);
         });
     }
 
@@ -607,7 +606,9 @@ export default class Channel {
                     await* parent.pipeline.map(x => x.put(val)); // eslint-disable-line no-loop-func
                 }
             })();
-            parent[ACTIONS.CANCEL] = () => { running = false; };
+            parent[ACTIONS.CANCEL] = () => {
+                running = false;
+            };
         }
         return channels[channels.length - 1];
     }
@@ -637,7 +638,7 @@ export default class Channel {
     }
 
     static unpipe(parent: Channel, ...channels: Array<Channel>) {
-        for (let [index, pipe] of Array.entries(parent.pipeline)) {
+        for (let [ index, pipe ] of Array.entries(parent.pipeline)) {
             for (let ch2 of channels) {
                 if (pipe === ch2)
                     parent.pipeline.splice(index, 1);

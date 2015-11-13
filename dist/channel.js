@@ -74,7 +74,7 @@ function expose(e) {
 */
 function finish(ch) {
     ch[STATE] = STATES.ENDED;
-    var waiting = undefined;
+    var waiting = null;
     while (waiting = ch.waiting.shift()) // eslint-disable-line no-cond-assign
     waiting();
 }
@@ -105,7 +105,7 @@ function flush(ch) {
 
             case 4:
                 ch[IS_FLUSHING] = true;
-                take = undefined, takes = [];
+                take = null, takes = [];
 
                 while (take = ch.takes.shift()) // eslint-disable-line no-cond-assign
                 takes.push(take(ACTIONS.DONE));
@@ -228,7 +228,7 @@ function _bufferedSlide(ch) {
                         while (1) switch (context$2$0.prev = context$2$0.next) {
                             case 0:
                                 buf = ch.buf.shift();
-                                val = undefined;
+                                val = null;
 
                                 if (!(buf && buf.wrapped)) {
                                     context$2$0.next = 8;
@@ -518,7 +518,7 @@ var Channel = (function () {
     function Channel() {
         _classCallCheck(this, Channel);
 
-        var size = undefined;
+        var size = null;
         var transform = null;
         if (typeof arguments[0] === 'function') transform = arguments[0];
         if (typeof arguments[0] === 'number') {
@@ -995,7 +995,8 @@ var Channel = (function () {
         key: 'done',
         value: function done(ch) {
             return new _Promise(function (resolve) {
-                if (ch.state === STATES.ENDED) return resolve();else ch.waiting.push(resolve);
+                if (ch.state === STATES.ENDED) return resolve();
+                ch.waiting.push(resolve);
             });
         }
     }, {

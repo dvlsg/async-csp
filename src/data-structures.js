@@ -42,7 +42,7 @@ class Data {
     }
 
     values() {
-        return [...this[ARR]];
+        return [ ...this[ARR] ];
     }
 }
 // Data[Symbol.toStringTag] = 'Data';

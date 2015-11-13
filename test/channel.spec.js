@@ -26,11 +26,6 @@ describe('Channel', function() {
             assert.is(ch.takes, List);
             assert.true(ch.takes.empty());
 
-            assert.exists(ch.buf);
-            assert.is(ch.buf, FixedQueue);
-            assert.true(ch.buf.empty());
-            assert.equal(ch.buf.size, Channel.DEFAULT_SIZE);
-
             assert.exists(ch.pipeline);
             assert.empty(ch.pipeline);
             assert.is(ch.pipeline, Array);
@@ -43,25 +38,27 @@ describe('Channel', function() {
         it('should initialize with a buffer size', async() => {
             let ch = new Channel(92);
             assert.true(ch.empty());
+            assert.exists(ch.buf);
+            assert.is(ch.buf, FixedQueue);
             assert.true(ch.buf.empty());
             assert.equal(ch.buf.size, 92);
         });
 
         it('should initialize with a transform', async() => {
-            let ch = new Channel(x => x**2);
-            for (let i = 0; i < 4; i++)
-                await ch.put(i);
-            for (let i = 0; i < 4; i++)
-                assert.equal(await ch.take(), i**2);
+            let fn = x => x ** 2;
+            let ch = new Channel(fn);
+            assert.equal(ch.transform, fn);
         });
 
         it('should initialize with a buffer size and a transform', async() => {
-            let ch = new Channel(3, x => ({x}));
-            for (let i = 0; i < 3; i++)
-                await ch.put(i);
-            assert.equal(await ch.take(), {x: 0});
-            assert.equal(await ch.take(), {x: 1});
-            assert.equal(await ch.take(), {x: 2});
+            let fn = x => ({ x });
+            let size = 3;
+            let ch = new Channel(size, fn);
+            assert.exists(ch.buf);
+            assert.true(ch.buf.empty());
+            assert.false(ch.buf.full());
+            assert.equal(ch.buf.size, size);
+            assert.equal(ch.transform, fn);
         });
     });
 
@@ -69,7 +66,7 @@ describe('Channel', function() {
 
         it('can initialize a channel from an array', async() => {
             let arr = [1, 2, 3, 4, 5];
-            let ch = Channel.from([1, 2, 3, 4, 5]);
+            let ch = Channel.from(arr);
             assert.equal(arr.length, ch.buf.length);
             for (let val of arr)
                 assert.equal(await ch.take(), val);
@@ -113,12 +110,12 @@ describe('Channel', function() {
 
     describe('#size', () => {
 
-        it('should equal Channel.DEFAULT_SIZE with default constructor', () => {
+        it('should be undefined when no buffer is used', () => {
             let ch = new Channel();
-            assert.equal(ch.size, Channel.DEFAULT_SIZE);
+            assert.equal(ch.size, undefined);
         });
 
-        it('should equal the size provided to the constructor', () => {
+        it('should be the size of the buffer when a buffer is used', () => {
             let ch = new Channel(96);
             assert.equal(ch.size, 96);
         });
@@ -126,29 +123,61 @@ describe('Channel', function() {
 
     describe('#length', () => {
 
-        it('should equal buffer length plus puts length', async() => {
+        it('should equal puts length', async() => {
+            let ch = new Channel();
+            assert.equal(ch.length, 0);
+            assert.equal(ch.length, ch.puts.length);
+            ch.put(1);
+            assert.equal(ch.length, 1);
+            assert.equal(ch.length, ch.puts.length);
+            ch.put(2);
+            assert.equal(ch.length, 2);
+            assert.equal(ch.length, ch.puts.length);
+            await ch.take();
+            assert.equal(ch.length, 1);
+            assert.equal(ch.length, ch.puts.length);
+        });
+
+        it('should equal puts length plus buffer length', async() => {
             let ch = new Channel(2);
             assert.equal(ch.length, 0);
-            assert.equal(ch.length, ch.buf.length + ch.puts.length);
+            assert.equal(ch.buf.length, 0);
+            assert.equal(ch.puts.length, 0);
             await ch.put(1);
             assert.equal(ch.length, 1);
-            assert.equal(ch.length, ch.buf.length + ch.puts.length);
+            assert.equal(ch.buf.length, 1);
+            assert.equal(ch.puts.length, 0);
             await ch.put(2);
             assert.equal(ch.length, 2);
-            assert.equal(ch.length, ch.buf.length + ch.puts.length);
+            assert.equal(ch.buf.length, 2);
+            assert.equal(ch.puts.length, 0);
             ch.put(3);
             assert.equal(ch.length, 3);
-            assert.equal(ch.length, ch.buf.length + ch.puts.length);
+            assert.equal(ch.buf.length, 2);
+            assert.equal(ch.puts.length, 1);
         });
     });
 
     describe('#empty()', () => {
 
-        it('should be true when buffer and puts queue are empty', async() => {
+        it('should be true when puts queue is empty', async() => {
             let ch = new Channel();
+            assert.true(ch.puts.empty());
+            assert.true(ch.empty());
+        });
+
+        it('should be true when buffer and puts queue are empty', async() => {
+            let ch = new Channel(1);
             assert.true(ch.puts.empty());
             assert.true(ch.buf.empty());
             assert.true(ch.empty());
+        });
+
+        it('should be false when puts queue is non empty', async() => {
+            let ch = new Channel();
+            ch.put(1);
+            assert.false(ch.puts.empty());
+            assert.false(ch.empty());
         });
 
         it('should be false when buffer is non empty', async() => {
@@ -162,7 +191,6 @@ describe('Channel', function() {
             let ch = new Channel();
             ch.take();
             assert.true(ch.puts.empty());
-            assert.true(ch.buf.empty());
             assert.false(ch.takes.empty());
             assert.true(ch.empty());
         });
@@ -175,14 +203,14 @@ describe('Channel', function() {
 
         it('can be non-empty when open', async() => {
             let ch = new Channel();
-            await ch.put(1);
+            ch.put(1);
             assert.equal(ch.state, STATES.OPEN);
             assert.false(ch.empty());
         });
 
-        it('should be non-empty when closed', async() => {
-            let ch = new Channel();
-            await ch.put(1);
+        it('can be non-empty when closed', async() => {
+            let ch = new Channel(1);
+            ch.put(1);
             ch.close();
             assert.equal(ch.state, STATES.CLOSED);
             assert.false(ch.empty());
@@ -190,7 +218,7 @@ describe('Channel', function() {
 
         it('should be empty when ended', async() => {
             let ch = new Channel();
-            await ch.put(1);
+            ch.put(1);
             ch.close();
             await ch.take();
             await ch.done();
@@ -203,43 +231,20 @@ describe('Channel', function() {
 
         it('should return a promise', async() => {
             let ch = new Channel();
-            let take = ch.take();
-            assert.is(take, Promise);
+            let put = ch.put(1);
+            assert.is(put, Promise);
         });
 
         it('should put a value', async() => {
             let ch = new Channel();
             assert.true(ch.empty());
-            await ch.put(1);
+            ch.put(1);
             assert.false(ch.empty());
-            assert.equal(ch.buf.length, 1);
-            assert.true(ch.puts.empty());
-        });
-
-        it('should execute any available transform', async() => {
-            let ch = new Channel(x => x**2);
-            for (let val of [1, 2, 3, 4, 5])
-                await ch.put(val);
-            assert.equal(await ch.take(), 1);
-            assert.equal(await ch.take(), 4);
-            assert.equal(await ch.take(), 9);
-            assert.equal(await ch.take(), 16);
-            assert.equal(await ch.take(), 25);
+            assert.false(ch.puts.empty());
         });
 
         it('should put values in order', async() => {
-            let ch = new Channel(8);
-            for (let val of [1, 2, 3, 4, 5])
-                await ch.put(val);
-            assert.equal(await ch.take(), 1);
-            assert.equal(await ch.take(), 2);
-            assert.equal(await ch.take(), 3);
-            assert.equal(await ch.take(), 4);
-            assert.equal(await ch.take(), 5);
-        });
-
-        it('should put values in order without await', async() => {
-            let ch = new Channel(2);
+            let ch = new Channel();
             for (let val of [1, 2, 3, 4, 5])
                 ch.put(val);
             assert.equal(await ch.take(), 1);
@@ -281,18 +286,18 @@ describe('Channel', function() {
         });
 
         it('should take values', async() => {
-            let ch = new Channel(10);
-            await ch.put(1);
+            let ch = new Channel();
+            ch.put(1);
             assert.equal(await ch.take(), 1);
             assert.true(ch.empty());
             assert.true(ch.takes.empty());
         });
 
         it('should take values in order', async() => {
-            let ch = new Channel(10);
+            let ch = new Channel();
             let counter = 0;
             for (let i = 0; i < 10; i++)
-                await ch.put(counter += Math.random());
+                ch.put(counter += Math.random());
             let arr = [];
             for (let i = 0; i < 10; i++)
                 arr.push(await ch.take());
@@ -315,9 +320,22 @@ describe('Channel', function() {
             ch.put(1);
             assert.equal(await take, 1);
         });
+
+        it('should execute any available transform', async() => {
+            let ch = new Channel(x => x ** 2);
+            for (let val of [1, 2, 3, 4, 5])
+                ch.put(val);
+            assert.equal(await ch.take(), 1);
+            assert.equal(await ch.take(), 4);
+            assert.equal(await ch.take(), 9);
+            assert.equal(await ch.take(), 16);
+            assert.equal(await ch.take(), 25);
+        });
     });
 
     describe('#tail()', () => {
+
+        // revisit later, less important
 
         it('should return a promise', () => {
             let ch = new Channel();
@@ -379,7 +397,7 @@ describe('Channel', function() {
 
         it('should close a non-empty channel', async() => {
             let ch = new Channel();
-            await ch.put(1);
+            ch.put(1);
             assert.equal(ch.state, STATES.OPEN);
             ch.close();
             assert.equal(ch.state, STATES.CLOSED);
@@ -396,7 +414,7 @@ describe('Channel', function() {
         it('should swap from closed to ended on closed channel emptied', async() => {
             let ch = new Channel();
             assert.equal(ch.state, STATES.OPEN);
-            await ch.put(1);
+            ch.put(1);
             assert.equal(ch.state, STATES.OPEN);
             ch.close();
             assert.equal(ch.state, STATES.CLOSED);
@@ -487,7 +505,7 @@ describe('Channel', function() {
             let ch3 = new Channel(8, x => ({y: x.x}));
             ch1.pipe(ch2).pipe(ch3);
             for (let i = 0; i < 5; i++)
-                await ch1.put(i);
+                ch1.put(i);
             for (let i = 0; i < 5; i++)
                 assert.equal(await ch3.take(), {y: i + 2});
         });
@@ -505,8 +523,8 @@ describe('Channel', function() {
         });
 
         it('should pipe values which were already buffered', async() => {
-            let ch1 = new Channel();
-            let ch2 = new Channel();
+            let ch1 = new Channel(4);
+            let ch2 = new Channel(4);
             for (let i = 0; i < 4; i++)
                 await ch1.put(i);
             ch1.pipe(ch2);
@@ -621,15 +639,16 @@ describe('Channel', function() {
         });
 
         it('should be able to close the entire pipeline by flag', async() => {
-            let ch1 = new Channel(4);
-            let ch2 = new Channel(4);
-            let ch3 = new Channel(4);
-            let ch4 = new Channel(4);
-            for (let i = 0; i < 4; i++)
-                await ch1.put(i);
+            let ch1 = new Channel();
+            let ch2 = new Channel();
+            let ch3 = new Channel();
+            let ch4 = new Channel();
             ch1.pipe(ch2).pipe(ch3).pipe(ch4);
+            for (let i = 0; i < 8; i++) {
+                ch1.put(i); // if we await this and the cap is >= 4, then we freeze? wtf?
+            }
             ch1.close(true);
-            for (let i = 0; i < 4; i++)
+            for (let i = 0; i < 8; i++)
                 assert.equal(await ch4.take(), i);
             await ch4.done();
             assert.equal(ch1.state, STATES.ENDED);
@@ -734,7 +753,7 @@ describe('Channel', function() {
             assert.empty(ch3.takes);
 
             assert.true(ch1.empty());
-            assert.empty(ch1.takes);
+            assert.equal(ch1.takes.length, 1); // ch3 should still have a take registered with c1
         });
     });
 
@@ -755,7 +774,7 @@ describe('Channel', function() {
     describe('#produce()', () => {
 
         it('should automatically produce values when space is available', async() => {
-            let ch = new Channel(1);
+            let ch = new Channel();
             let counter = 0;
             ch.produce(() => counter++);
             for (let i = 0; i < 10; i++)
@@ -765,7 +784,7 @@ describe('Channel', function() {
         });
 
         it('can produce values synchronously', async() => {
-            let ch = new Channel(1);
+            let ch = new Channel();
             ch.produce(Math.random);
             for (let i = 0; i < 10; i++) {
                 let val = await ch.take();
@@ -776,7 +795,7 @@ describe('Channel', function() {
         });
 
         it('can produce values asynchronously', async() => {
-            let ch = new Channel(1);
+            let ch = new Channel();
             let counter = 0;
             ch.produce(async() => {
                 await timeout();
@@ -808,7 +827,7 @@ describe('Channel', function() {
         });
 
         it('can consume values asynchronously', async() => {
-            let ch = new Channel(2, async x => x);
+            let ch = new Channel(async x => x);
             let counter = 0;
             ch.consume(async x => {
                 await timeout();
@@ -825,7 +844,7 @@ describe('Channel', function() {
         });
 
         it('should consume all values even if put without waiting', async() => {
-            let ch = new Channel(2, async x => {
+            let ch = new Channel(async x => {
                 await timeout();
                 return x;
             });
@@ -853,7 +872,7 @@ describe('Channel', function() {
         it('should transform values', async() => {
             let ch = new Channel(x => x ** 2);
             for (let i = 1; i <= 4; i++)
-                await ch.put(i);
+                ch.put(i);
             for (let i = 0; i < 4; i++)
                 assert.equal(await ch.take(), (i + 1) ** 2);
         });
@@ -863,10 +882,10 @@ describe('Channel', function() {
                 if (x > 2)
                     return x;
             });
-            await ch.put(1);
-            await ch.put(1);
-            await ch.put(3);
-            await ch.put(4);
+            ch.put(1);
+            ch.put(2);
+            ch.put(3);
+            ch.put(4);
             assert.equal(await ch.take(), 3);
             assert.equal(await ch.take(), 4);
             assert.empty(ch);
@@ -877,26 +896,26 @@ describe('Channel', function() {
                 if (x > 2)
                     push(x);
             });
-            await ch.put(1);
-            await ch.put(2);
-            await ch.put(3);
-            await ch.put(4);
+            ch.put(1);
+            ch.put(2);
+            ch.put(3);
+            ch.put(4);
             assert.equal(await ch.take(), 3);
             assert.equal(await ch.take(), 4);
             assert.empty(ch);
         });
 
         it('should expand values by multiple callback executions', async() => {
-            let ch = new Channel(4, (x, push) => {
+            let ch = new Channel((x, push) => {
                 if (x > 2) {
                     push(x);
                     push(x);
                 }
             });
-            await ch.put(1);
-            await ch.put(2);
-            await ch.put(3);
-            await ch.put(4);
+            ch.put(1);
+            ch.put(2);
+            ch.put(3);
+            ch.put(4);
             assert.equal(await ch.take(), 3);
             assert.equal(await ch.take(), 3);
             assert.equal(await ch.take(), 4);
@@ -905,7 +924,7 @@ describe('Channel', function() {
         });
 
         it('should maintain order with multiple callback transforms', async() => {
-            let ch = new Channel(2, (x, push) => {
+            let ch = new Channel(8, (x, push) => {
                 if (x < 3) {
                     push(x);
                     push(x * 2);
@@ -914,24 +933,23 @@ describe('Channel', function() {
                 else
                     push(x);
             });
-
             let arr = [];
             ch.consume(async x => {
                 arr.push(x);
             });
-            ch.put(1);
-            ch.put(2);
-            ch.put(3);
-            ch.put(4);
-            ch.put(5);
-            ch.put(6);
+            await ch.put(1);
+            await ch.put(2);
+            await ch.put(3);
+            await ch.put(4);
+            await ch.put(5);
+            await ch.put(6);
             ch.close();
             await ch.done();
             assert.equal(arr, [1, 2, 3, 2, 4, 6, 3, 4, 5, 6]);
         });
 
         it('should transform values asynchronously when promise is returned', async() => {
-            let ch = new Channel(4, async(val, push) => {
+            let ch = new Channel(async(val, push) => {
                 await timeout(5);
                 push(val);
                 await timeout(5);
@@ -948,7 +966,7 @@ describe('Channel', function() {
         });
 
         it('should transform values asynchronously when 3 parameters are used', async() => {
-            let ch = new Channel(4, (val, push, done) => {
+            let ch = new Channel((val, push, done) => {
                 setTimeout(() => {
                     push(val);
                     setTimeout(() => {

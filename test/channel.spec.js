@@ -1,7 +1,7 @@
 "use strict";
 
 import Channel, { STATES, timeout } from '../src/channel.js';
-import {List, FixedQueue} from '../src/data-structures.js';
+import { List, FixedQueue } from '../src/data-structures.js';
 import assert from 'zana-assert';
 import wrapMocha from './util/wrap-mocha.js'; // eslint-disable-line no-unused-vars
 let log = ::console.log; // eslint-disable-line
@@ -65,7 +65,7 @@ describe('Channel', function() {
     describe('.from()', () => {
 
         it('can initialize a channel from an array', async() => {
-            let arr = [1, 2, 3, 4, 5];
+            let arr = [ 1, 2, 3, 4, 5 ];
             let ch = Channel.from(arr);
             assert.equal(arr.length, ch.buf.length);
             for (let val of arr)
@@ -76,7 +76,11 @@ describe('Channel', function() {
         });
 
         it('can initialize a channel from a generator', async() => {
-            let gen = function*() { yield 1; yield 2; yield 3; };
+            let gen = function*() {
+                yield 1;
+                yield 2;
+                yield 3;
+            };
             let ch = Channel.from(gen());
             assert.equal(ch.buf.length, 3);
             let val = null;
@@ -87,7 +91,11 @@ describe('Channel', function() {
 
         it('can initialize a channel from any iterable', async() => {
             let obj = {
-                *[Symbol.iterator]() { yield 4; yield 5; yield 6; }
+                *[Symbol.iterator]() {
+                    yield 4;
+                    yield 5;
+                    yield 6;
+                }
             };
             let ch = Channel.from(obj);
             assert.equal(ch.buf.length, 3);
@@ -98,12 +106,12 @@ describe('Channel', function() {
         });
 
         it('should initialize the channel as closed', async() => {
-            let ch = Channel.from([1, 2, 3]);
+            let ch = Channel.from([ 1, 2, 3 ]);
             assert.equal(ch.state, STATES.CLOSED);
         });
 
         it('can leave the channel open by flag', async() => {
-            let ch = Channel.from([1, 2, 3], true);
+            let ch = Channel.from([ 1, 2, 3 ], true);
             assert.equal(ch.state, STATES.OPEN);
         });
     });
@@ -181,7 +189,7 @@ describe('Channel', function() {
         });
 
         it('should be false when buffer is non empty', async() => {
-            let ch = Channel.from([1, 2, 3]);
+            let ch = Channel.from([ 1, 2, 3 ]);
             assert.true(ch.puts.empty());
             assert.false(ch.buf.empty());
             assert.false(ch.empty());
@@ -245,7 +253,7 @@ describe('Channel', function() {
 
         it('should put values in order', async() => {
             let ch = new Channel();
-            for (let val of [1, 2, 3, 4, 5])
+            for (let val of [ 1, 2, 3, 4, 5 ])
                 ch.put(val);
             assert.equal(await ch.take(), 1);
             assert.equal(await ch.take(), 2);
@@ -323,7 +331,7 @@ describe('Channel', function() {
 
         it('should execute any available transform', async() => {
             let ch = new Channel(x => x ** 2);
-            for (let val of [1, 2, 3, 4, 5])
+            for (let val of [ 1, 2, 3, 4, 5 ])
                 ch.put(val);
             assert.equal(await ch.take(), 1);
             assert.equal(await ch.take(), 4);
@@ -384,7 +392,7 @@ describe('Channel', function() {
             let take3 = ch.take();
             ch.close();
             await ch.done();
-            let [val1, val2, val3] = await Promise.all([take1, take2, take3]);
+            let [ val1, val2, val3 ] = await Promise.all([ take1, take2, take3 ]);
             assert.equal(ch.state, STATES.ENDED);
             assert.equal(val1, 1);
             assert.equal(val2, 2);
@@ -443,10 +451,10 @@ describe('Channel', function() {
 
         it('should resolve all promises when the channel is ended', async() => {
             let ch = new Channel();
-            let [d1, d2, d3] = [ch.done(), ch.done(), ch.done()];
+            let [ d1, d2, d3 ] = [ ch.done(), ch.done(), ch.done() ];
             assert.equal(ch.state, STATES.OPEN);
             ch.close();
-            await* [d1, d2, d3];
+            await Promise.all([ d1, d2, d3 ]);
             assert.equal(ch.state, STATES.ENDED);
         });
     });
@@ -459,7 +467,7 @@ describe('Channel', function() {
             ch1.pipe(ch2);
             await ch1.put(1);
             assert.equal(await ch2.take(), 1);
-            assert.equal(ch1.pipeline, [ch2]);
+            assert.equal(ch1.pipeline, [ ch2 ]);
             assert.empty(ch2.pipeline);
             assert.true(ch1.empty());
             assert.true(ch2.empty());
@@ -484,7 +492,7 @@ describe('Channel', function() {
             let ch3 = new Channel();
             ch1.pipe(ch2, ch3);
             await ch1.put(1);
-            let [take2, take3] = await* [ch2.take(), ch3.take()];
+            let [ take2, take3 ] = await Promise.all([ ch2.take(), ch3.take() ]);
             assert.equal(take2, 1);
             assert.equal(take3, 1);
             assert.true(ch1.empty());
@@ -501,13 +509,13 @@ describe('Channel', function() {
 
         it('should execute any available transforms in the pipeline', async() => {
             let ch1 = new Channel(8, x => x + 2);
-            let ch2 = new Channel(8, x => ({x}));
-            let ch3 = new Channel(8, x => ({y: x.x}));
+            let ch2 = new Channel(8, x => ({ x }));
+            let ch3 = new Channel(8, x => ({ y: x.x }));
             ch1.pipe(ch2).pipe(ch3);
             for (let i = 0; i < 5; i++)
                 ch1.put(i);
             for (let i = 0; i < 5; i++)
-                assert.equal(await ch3.take(), {y: i + 2});
+                assert.equal(await ch3.take(), { y: i + 2 });
         });
 
         it('should be able to put values onto any channel', async() => {
@@ -608,7 +616,7 @@ describe('Channel', function() {
             assert.empty(ch3.puts);
             assert.empty(ch3.takes);
 
-            [take2, take3] = await* [ch2.take(), ch3.take()];
+            [ take2, take3 ] = await Promise.all([ ch2.take(), ch3.take() ]);
             await timeout(); // same as above. ensure that the async put has time to place values from ch1 onto ch2 and ch3 after the takes are successful
 
             // ch2 should have accepted the last value from ch1
@@ -664,7 +672,7 @@ describe('Channel', function() {
             let ch1 = new Channel(2);
             let ch2 = new Channel(2);
             ch1.pipe(ch2);
-            assert.equal(ch1.pipeline, [ch2]);
+            assert.equal(ch1.pipeline, [ ch2 ]);
             ch1.unpipe(ch2);
             assert.equal(ch1.pipeline, []);
         });
@@ -709,15 +717,15 @@ describe('Channel', function() {
             let ch2 = new Channel(2);
             let ch3 = new Channel(2);
             ch1.pipe(ch2).pipe(ch3);
-            assert.equal(ch1.pipeline, [ch2]);
-            assert.equal(ch2.pipeline, [ch3]);
+            assert.equal(ch1.pipeline, [ ch2 ]);
+            assert.equal(ch2.pipeline, [ ch3 ]);
             await ch1.put(1);
             await ch1.put(2);
             assert.equal(await ch3.take(), 1);
             assert.equal(await ch3.take(), 2);
             ch1.unpipe(ch2);
             assert.equal(ch1.pipeline, []);
-            assert.equal(ch2.pipeline, [ch3]);
+            assert.equal(ch2.pipeline, [ ch3 ]);
             await ch2.put(3);
             await ch2.put(4);
             assert.equal(await ch3.take(), 3);
@@ -730,13 +738,13 @@ describe('Channel', function() {
             let ch3 = new Channel(2);
 
             ch1.pipe(ch2, ch3);
-            assert.equal(ch1.pipeline, [ch2, ch3]);
+            assert.equal(ch1.pipeline, [ ch2, ch3 ]);
             await ch1.put(1);
             await ch1.put(2);
             await timeout(); // make sure the puts are through before unpipe
 
             ch1.unpipe(ch2);
-            assert.equal(ch1.pipeline, [ch3]);
+            assert.equal(ch1.pipeline, [ ch3 ]);
 
             await ch1.put(3);
             await ch1.put(4);
@@ -862,7 +870,7 @@ describe('Channel', function() {
             ch.put(8);
             ch.close();
             await ch.done();
-            assert.equal(arr, [1, 2, 3, 4, 5, 6, 7, 8]);
+            assert.equal(arr, [ 1, 2, 3, 4, 5, 6, 7, 8 ]);
         });
 
     });
@@ -945,7 +953,7 @@ describe('Channel', function() {
             await ch.put(6);
             ch.close();
             await ch.done();
-            assert.equal(arr, [1, 2, 3, 2, 4, 6, 3, 4, 5, 6]);
+            assert.equal(arr, [ 1, 2, 3, 2, 4, 6, 3, 4, 5, 6 ]);
         });
 
         it('should transform values asynchronously when promise is returned', async() => {
@@ -962,7 +970,7 @@ describe('Channel', function() {
             await ch.put(2);
             ch.close();
             await ch.done();
-            assert.equal(arr, [1, 3, 2, 4]);
+            assert.equal(arr, [ 1, 3, 2, 4 ]);
         });
 
         it('should transform values asynchronously when 3 parameters are used', async() => {
@@ -981,12 +989,12 @@ describe('Channel', function() {
             await ch.put(2);
             ch.close();
             await ch.done();
-            assert.equal(arr, [1, 3, 2, 4]);
+            assert.equal(arr, [ 1, 3, 2, 4 ]);
         });
 
     });
 
-    describe('general use', function() {
+    describe('general use', function() { // eslint-disable-line prefer-arrow-callback
 
         it('should not block indefinitely with synchronous produce + consume', async() => {
             let ch = new Channel();

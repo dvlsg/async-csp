@@ -22,6 +22,7 @@ export const ACTIONS = {
     CANCEL : Symbol('channel_cancel')
 };
 
+const SLIDER = Symbol('channel_slider');
 const STATE = Symbol('channel_state');
 const SHOULD_CLOSE = Symbol('channel_should_close');
 const IS_CONSUMING = Symbol('channel_consuming');
@@ -96,7 +97,7 @@ function wrap(val: any, transform: Function, resolve: Function) {
                     return accepted;
                 };
             }
-            else {
+            else /* transform.length === 3 */ {
                 wrapped = () => {
                     return new Promise(res => {
                         transform(val, acc => {
@@ -121,106 +122,105 @@ function wrap(val: any, transform: Function, resolve: Function) {
     };
 }
 
-async function _slide(ch: Channel) {
-    if (ch.buf) {
-        while (!ch.buf.empty() && !ch.takes.empty()) {
-            let buf = ch.buf.shift();
-            let val;
-            if (buf && buf.wrapped)
-                val = await buf.wrapped();
-            else
-                val = buf; // this is a special case caused by `from`. can we get rid of the need for this?
-            if (typeof val !== 'undefined') {
-                if (val instanceof List) { // need a way to distinguish this as a "special" array return
-                    let accepted = [...val];
-                    if (accepted.length === 0)
-                        buf.resolve();
-                    else if (accepted.length === 1) {
-                        buf.resolve();
-                        let take = ch.takes.shift();
-                        take(accepted[0]);
-                    }
-                    else /* accepted.length > 1 */ {
-                        let count = 0;
-                        let counter = () => {
-                            count++;
-                            if (count === accepted.length)
-                                buf.resolve();
-                        };
-                        let wrappers = accepted.map(acc => wrap(acc, x => x, counter));
-                        // when we use counter as the resolve, it makes us need
-                        // to call buf.resolve(), whereas we wouldn't normally,
-                        // since resolve() should have been called when moving
-                        // from put -> buf.
-
-                        // the problem is that when we use these expanded wrappers,
-                        // we need to execute the resolution. if we place on the buffer
-                        // directly, we can be sure we maintain the correct order.
-                        // if we place back on puts instead of the buffer,
-                        // we may or may not have the right order anymore.
-
-                        // another issue is what if we accept more than the buffer has space for?
-                        // what if there were already items on the buffer? do we kick them out,
-                        // and put them back in puts? that gives us essentially the same problem --
-                        // then we would have puts which don't need put.resolve() to be called,
-                        // which doesn't follow the usual pattern.
-
-                        // what to do, what to do... try to hammer out the inconsistency at some point.
-
-                        ch.buf.unshift(...wrappers); // this can expand beyond the actual buffer size. unintuitive?
-                    }
-                }
-                else {
+async function _bufferedSlide(ch: Channel) {
+    while (!ch.buf.empty() && !ch.takes.empty()) {
+        let buf = ch.buf.shift();
+        let val;
+        if (buf && buf.wrapped)
+            val = await buf.wrapped();
+        else
+            val = buf; // this is a special case caused by `from`. can we get rid of the need for this?
+        if (typeof val !== 'undefined') {
+            if (val instanceof List) { // need a way to distinguish this as a "special" array return
+                let accepted = [...val];
+                if (accepted.length === 0)
+                    buf.resolve();
+                else if (accepted.length === 1) {
+                    buf.resolve();
                     let take = ch.takes.shift();
-                    take(val);
+                    take(accepted[0]);
+                }
+                else /* accepted.length > 1 */ {
+                    let count = 0;
+                    let counter = () => {
+                        count++;
+                        if (count === accepted.length)
+                            buf.resolve();
+                    };
+                    let wrappers = accepted.map(acc => wrap(acc, x => x, counter));
+                    // when we use counter as the resolve, it makes us need
+                    // to call buf.resolve(), whereas we wouldn't normally,
+                    // since resolve() should have been called when moving
+                    // from put -> buf.
+
+                    // the problem is that when we use these expanded wrappers,
+                    // we need to execute the resolution. if we place on the buffer
+                    // directly, we can be sure we maintain the correct order.
+                    // if we place back on puts instead of the buffer,
+                    // we may or may not have the right order anymore.
+
+                    // another issue is what if we accept more than the buffer has space for?
+                    // what if there were already items on the buffer? do we kick them out,
+                    // and put them back in puts? that gives us essentially the same problem --
+                    // then we would have puts which don't need put.resolve() to be called,
+                    // which doesn't follow the usual pattern.
+
+                    // what to do, what to do... try to hammer out the inconsistency at some point.
+
+                    ch.buf.unshift(...wrappers); // this can expand beyond the actual buffer size. unintuitive?
                 }
             }
-            if (!ch.puts.empty() && !ch.buf.full()) {
-                let put = ch.puts.shift();
-                ch.buf.push(put);
-                put.resolve();
+            else {
+                let take = ch.takes.shift();
+                take(val);
             }
         }
-        while (!ch.puts.empty() && !ch.buf.full()) {
+        if (!ch.puts.empty() && !ch.buf.full()) {
             let put = ch.puts.shift();
             ch.buf.push(put);
             put.resolve();
         }
     }
-    else {
-        while (!ch.takes.empty() && !ch.puts.empty()) {
-            let put = ch.puts.shift();
-            let val = await put.wrapped();
-            if (typeof val !== 'undefined') {
-                if (val instanceof List) { // need a way to distinguish this as a "special" array return
-                    let accepted = [...val];
-                    if (accepted.length === 0)
-                        put.resolve();
-                    else if (accepted.length === 1) {
-                        put.resolve();
-                        let take = ch.takes.shift();
-                        take(accepted[0]);
-                    }
-                    else /* val.length > 1 */ {
-                        let count = 0;
-                        let counter = () => {
-                            count++;
-                            if (count === accepted.length)
-                                put.resolve();
-                        };
-                        let wrappers = accepted.map(acc => wrap(acc, x => x, counter));
-                        ch.puts.unshift(...wrappers);
-                    }
-                }
-                else {
+    while (!ch.puts.empty() && !ch.buf.full()) {
+        let put = ch.puts.shift();
+        ch.buf.push(put);
+        put.resolve();
+    }
+}
+
+async function _slide(ch: Channel) {
+    while (!ch.takes.empty() && !ch.puts.empty()) {
+        let put = ch.puts.shift();
+        let val = await put.wrapped();
+        if (typeof val !== 'undefined') {
+            if (val instanceof List) { // need a way to distinguish this as a "special" array return
+                let accepted = [...val];
+                if (accepted.length === 0)
+                    put.resolve();
+                else if (accepted.length === 1) {
                     put.resolve();
                     let take = ch.takes.shift();
-                    take(val);
+                    take(accepted[0]);
+                }
+                else /* val.length > 1 */ {
+                    let count = 0;
+                    let counter = () => {
+                        count++;
+                        if (count === accepted.length)
+                            put.resolve();
+                    };
+                    let wrappers = accepted.map(acc => wrap(acc, x => x, counter));
+                    ch.puts.unshift(...wrappers);
                 }
             }
             else {
                 put.resolve();
+                let take = ch.takes.shift();
+                take(val);
             }
+        }
+        else {
+            put.resolve();
         }
     }
 }
@@ -239,13 +239,13 @@ async function slide(ch: Channel) {
     ch[IS_SLIDING] = true;
 
     while (canSlide(ch))
-        await _slide(ch);
+        await ch[SLIDER](ch);
 
     if (ch[STATE] === STATES.CLOSED && !ch.tails.empty() && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty()) {
         ch.puts.unshift(...ch.tails);
         ch.tails = new List(); // need a way to empty out the list
         while (canSlide(ch))
-            await _slide(ch);
+            await ch[SLIDER](ch);
     }
 
     if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty() && ch.tails.empty())
@@ -311,8 +311,12 @@ export default class Channel {
         this.waiting   = [];
         this[STATE]    = STATES.OPEN;
 
-        if (size)
+        if (size) {
             this.buf = new FixedQueue(size);
+            this[SLIDER] = _bufferedSlide;
+        }
+        else
+            this[SLIDER] = _slide;
     }
 
     /*

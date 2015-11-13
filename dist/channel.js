@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 var _createClass = require('babel-runtime/helpers/create-class')['default'];
 
@@ -48,6 +48,7 @@ var ACTIONS = {
 };
 
 exports.ACTIONS = ACTIONS;
+var SLIDER = _Symbol('channel_slider');
 var STATE = _Symbol('channel_state');
 var SHOULD_CLOSE = _Symbol('channel_should_close');
 var IS_CONSUMING = _Symbol('channel_consuming');
@@ -178,17 +179,17 @@ function wrap(val, transform, resolve) {
                             }
                         }, null, _this);
                     };
-                } else {
-                    wrapped = function () {
-                        return new _Promise(function (res) {
-                            transform(val, function (acc) {
-                                if (typeof acc !== 'undefined') accepted.push(acc);
-                            }, function () {
-                                res(accepted);
+                } else /* transform.length === 3 */{
+                        wrapped = function () {
+                            return new _Promise(function (res) {
+                                transform(val, function (acc) {
+                                    if (typeof acc !== 'undefined') accepted.push(acc);
+                                }, function () {
+                                    res(accepted);
+                                });
                             });
-                        });
-                    };
-                }
+                        };
+                    }
             })();
         }
     } else {
@@ -213,19 +214,14 @@ function wrap(val, transform, resolve) {
     };
 }
 
-function _slide(ch) {
-    var _loop, put, _loop2;
+function _bufferedSlide(ch) {
+    var _loop, put;
 
-    return _regeneratorRuntime.async(function _slide$(context$1$0) {
+    return _regeneratorRuntime.async(function _bufferedSlide$(context$1$0) {
         var _this2 = this;
 
         while (1) switch (context$1$0.prev = context$1$0.next) {
             case 0:
-                if (!ch.buf) {
-                    context$1$0.next = 10;
-                    break;
-                }
-
                 _loop = function callee$1$0() {
                     var buf, val, take, put;
                     return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
@@ -299,10 +295,10 @@ function _slide(ch) {
                                                 }
                                         })();
                                     } else {
-                                        take = ch.takes.shift();
+                                            take = ch.takes.shift();
 
-                                        take(val);
-                                    }
+                                            take(val);
+                                        }
                                 }
                                 if (!ch.puts.empty() && !ch.buf.full()) {
                                     put = ch.puts.shift();
@@ -318,30 +314,42 @@ function _slide(ch) {
                     }, null, _this2);
                 };
 
-            case 2:
+            case 1:
                 if (!(!ch.buf.empty() && !ch.takes.empty())) {
-                    context$1$0.next = 7;
+                    context$1$0.next = 6;
                     break;
                 }
 
-                context$1$0.next = 5;
+                context$1$0.next = 4;
                 return _regeneratorRuntime.awrap(_loop());
 
-            case 5:
-                context$1$0.next = 2;
+            case 4:
+                context$1$0.next = 1;
                 break;
 
-            case 7:
+            case 6:
                 while (!ch.puts.empty() && !ch.buf.full()) {
                     put = ch.puts.shift();
 
                     ch.buf.push(put);
                     put.resolve();
                 }
-                context$1$0.next = 16;
-                break;
 
-            case 10:
+            case 7:
+            case 'end':
+                return context$1$0.stop();
+        }
+    }, null, this);
+}
+
+function _slide(ch) {
+    var _loop2;
+
+    return _regeneratorRuntime.async(function _slide$(context$1$0) {
+        var _this3 = this;
+
+        while (1) switch (context$1$0.prev = context$1$0.next) {
+            case 0:
                 _loop2 = function callee$1$0() {
                     var put, val, take;
                     return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
@@ -395,23 +403,23 @@ function _slide(ch) {
                             case 'end':
                                 return context$2$0.stop();
                         }
-                    }, null, _this2);
+                    }, null, _this3);
                 };
 
-            case 11:
+            case 1:
                 if (!(!ch.takes.empty() && !ch.puts.empty())) {
-                    context$1$0.next = 16;
+                    context$1$0.next = 6;
                     break;
                 }
 
-                context$1$0.next = 14;
+                context$1$0.next = 4;
                 return _regeneratorRuntime.awrap(_loop2());
 
-            case 14:
-                context$1$0.next = 11;
+            case 4:
+                context$1$0.next = 1;
                 break;
 
-            case 16:
+            case 6:
             case 'end':
                 return context$1$0.stop();
         }
@@ -445,7 +453,7 @@ function slide(ch) {
                 }
 
                 context$1$0.next = 6;
-                return _regeneratorRuntime.awrap(_slide(ch));
+                return _regeneratorRuntime.awrap(ch[SLIDER](ch));
 
             case 6:
                 context$1$0.next = 3;
@@ -458,7 +466,7 @@ function slide(ch) {
                 }
 
                 (_ch$puts2 = ch.puts).unshift.apply(_ch$puts2, _toConsumableArray(ch.tails));
-                ch.tails = new _dataStructuresJs.List();
+                ch.tails = new _dataStructuresJs.List(); // need a way to empty out the list
 
             case 11:
                 if (!canSlide(ch)) {
@@ -467,7 +475,7 @@ function slide(ch) {
                 }
 
                 context$1$0.next = 14;
-                return _regeneratorRuntime.awrap(_slide(ch));
+                return _regeneratorRuntime.awrap(ch[SLIDER](ch));
 
             case 14:
                 context$1$0.next = 11;
@@ -487,7 +495,7 @@ function slide(ch) {
 }
 
 function timeout() {
-    var delay = arguments[0] === undefined ? 0 : arguments[0];
+    var delay = arguments.length <= 0 || arguments[0] === undefined ? 0 : arguments[0];
 
     return new _Promise(function (resolve) {
         setTimeout(resolve, delay);
@@ -498,9 +506,9 @@ var Channel = (function () {
 
     /*
         Default constructor for a Channel.
-          Accepts an optional size for the internal buffer,
+         Accepts an optional size for the internal buffer,
         and an optional transform function to be used by the Channel.
-          Examples:
+         Examples:
             new Channel()              -> Non buffered channel, no transform
             new Channel(x => x * 2)    -> Non buffered channel, with transform
             new Channel(8)             -> Buffered channel, no transform
@@ -525,20 +533,34 @@ var Channel = (function () {
         this.waiting = [];
         this[STATE] = STATES.OPEN;
 
-        if (size) this.buf = new _dataStructuresJs.FixedQueue(size);
+        if (size) {
+            this.buf = new _dataStructuresJs.FixedQueue(size);
+            this[SLIDER] = _bufferedSlide;
+        } else this[SLIDER] = _slide;
     }
+
+    /*
+        A helper constructor which will convert any iterable into a channel,
+        placing all of the iterable's values onto that channel.
+    */
 
     _createClass(Channel, [{
         key: 'close',
+        // we have a timing problem with pipes.. this resolves it, but is hacky.
 
         /*
             Calls Channel.close for `this`, `all`.
         */
         value: function close() {
-            var all = arguments[0] === undefined ? false : arguments[0];
+            var all = arguments.length <= 0 || arguments[0] === undefined ? false : arguments[0];
 
             return Channel.close(this, all);
         }
+
+        /*
+            Determines if a channel
+            has any values left for `take` to use.
+        */
     }, {
         key: 'empty',
 
@@ -548,6 +570,12 @@ var Channel = (function () {
         value: function empty() {
             return Channel.empty(this);
         }
+
+        /*
+            Places a new value onto the provided channel.
+             If the buffer is full, the promise will be pushed
+            onto Channel.puts to be resolved when buffer space is available.
+        */
     }, {
         key: 'put',
 
@@ -557,6 +585,12 @@ var Channel = (function () {
         value: function put(val) {
             return Channel.put(this, val);
         }
+
+        /*
+            Takes the first value from the provided channel.
+             If no value is provided, the promise will be pushed
+            onto Channel.takes to be resolved when a value is available.
+        */
     }, {
         key: 'take',
 
@@ -575,6 +609,11 @@ var Channel = (function () {
         value: function tail(val) {
             return Channel.tail(this, val);
         }
+
+        /*
+            Helper method for putting values onto a channel
+            from a provided producer whenever there is space.
+        */
     }, {
         key: 'produce',
 
@@ -584,6 +623,11 @@ var Channel = (function () {
         value: function produce(producer) {
             return Channel.produce(this, producer);
         }
+
+        /*
+            Helper method for executing a provided consumer
+            each time a channel value is available.
+        */
     }, {
         key: 'consume',
 
@@ -591,10 +635,15 @@ var Channel = (function () {
             Calls Channel.consume for `this`, `consumer`.
         */
         value: function consume() {
-            var consumer = arguments[0] === undefined ? function () {} : arguments[0];
+            var consumer = arguments.length <= 0 || arguments[0] === undefined ? function () {} : arguments[0];
 
             return Channel.consume(this, consumer);
         }
+
+        /*
+            Registers a promise to be resolved
+            when the channel has fully ended.
+        */
     }, {
         key: 'done',
 
@@ -604,6 +653,15 @@ var Channel = (function () {
         value: function done() {
             return Channel.done(this);
         }
+
+        /*
+            Automatically builds a set of channels
+            for the provided function arguments,
+            setting up a pipe from the first channel
+            all the way down to the last channel.
+             Returns references to both
+            the first and the last channel.
+        */
     }, {
         key: 'pipe',
 
@@ -617,6 +675,10 @@ var Channel = (function () {
 
             return Channel.pipe.apply(Channel, [this].concat(channels));
         }
+
+        /*
+            Pipes all provided channels into a new, single destination.
+        */
     }, {
         key: 'merge',
 
@@ -655,37 +717,38 @@ var Channel = (function () {
         get: function get() {
             return this[STATE];
         }
-    }, {
-        key: 'length',
 
         /*
             Gets the length of the channel,
             which is interpreted as the current length of the buffer
             added to any puts which are waiting for space in the buffer.
         */
+    }, {
+        key: 'length',
         get: function get() {
             if (this.buf) return this.buf.length + this.puts.length;
             return this.puts.length;
         }
-    }, {
-        key: 'size',
 
         /*
             Gets the size of the channel,
             which is interpreted as the size of the buffer.
         */
+    }, {
+        key: 'size',
         get: function get() {
             return this.buf ? this.buf.size : undefined;
         }
-    }], [{
-        key: 'from',
 
         /*
-            A helper constructor which will convert any iterable into a channel,
-            placing all of the iterable's values onto that channel.
+            Marks a channel to no longer be writable.
+             Accepts an optional boolean `all`, to signify
+            whether or not to close the entire pipeline.
         */
+    }], [{
+        key: 'from',
         value: function from(iterable) {
-            var keepOpen = arguments[1] === undefined ? false : arguments[1];
+            var keepOpen = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
 
             var arr = [].concat(_toConsumableArray(iterable));
             var ch = new Channel(arr.length);
@@ -719,40 +782,23 @@ var Channel = (function () {
         }
     }, {
         key: 'close',
-
-        /*
-            Marks a channel to no longer be writable.
-              Accepts an optional boolean `all`, to signify
-            whether or not to close the entire pipeline.
-        */
         value: function close(ch) {
-            var all = arguments[1] === undefined ? false : arguments[1];
+            var all = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
 
             ch.state = STATES.CLOSED;
             if (all) ch[SHOULD_CLOSE] = true;
             setTimeout(function () {
                 return slide(ch);
-            }); // we have a timing problem with pipes.. this resolves it, but is hacky.
+            });
         }
     }, {
         key: 'empty',
-
-        /*
-            Determines if a channel
-            has any values left for `take` to use.
-        */
         value: function empty(ch) {
             if (ch.buf) return ch.buf.empty() && ch.puts.empty();
             return ch.puts.empty();
         }
     }, {
         key: 'put',
-
-        /*
-            Places a new value onto the provided channel.
-              If the buffer is full, the promise will be pushed
-            onto Channel.puts to be resolved when buffer space is available.
-        */
         value: function put(ch, val) {
             return new _Promise(function (resolve) {
                 if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
@@ -763,12 +809,6 @@ var Channel = (function () {
         }
     }, {
         key: 'take',
-
-        /*
-            Takes the first value from the provided channel.
-              If no value is provided, the promise will be pushed
-            onto Channel.takes to be resolved when a value is available.
-        */
         value: function take(ch) {
             return new _Promise(function (resolve) {
                 if (ch.state === STATES.ENDED) return resolve(ACTIONS.DONE);
@@ -788,15 +828,10 @@ var Channel = (function () {
         }
     }, {
         key: 'produce',
-
-        /*
-            Helper method for putting values onto a channel
-            from a provided producer whenever there is space.
-        */
         value: function produce(ch, producer) {
             var spin;
             return _regeneratorRuntime.async(function produce$(context$2$0) {
-                var _this3 = this;
+                var _this4 = this;
 
                 while (1) switch (context$2$0.prev = context$2$0.next) {
                     case 0:
@@ -866,7 +901,7 @@ var Channel = (function () {
                                     case 'end':
                                         return context$3$0.stop();
                                 }
-                            }, null, _this3, [[0, 20]]);
+                            }, null, _this4, [[0, 20]]);
                         })();
                         return context$2$0.abrupt('return', function () {
                             spin = false;
@@ -880,16 +915,10 @@ var Channel = (function () {
         }
     }, {
         key: 'consume',
-
-        /*
-            Helper method for executing a provided consumer
-            each time a channel value is available.
-        */
         value: function consume(ch) {
-            var consumer = arguments[1] === undefined ? function () {} // noop default
-            : arguments[1];
+            var consumer = arguments.length <= 1 || arguments[1] === undefined ? function () {} : arguments[1];
             return _regeneratorRuntime.async(function consume$(context$2$0) {
-                var _this4 = this;
+                var _this5 = this;
 
                 while (1) switch (context$2$0.prev = context$2$0.next) {
                     case 0:
@@ -953,7 +982,7 @@ var Channel = (function () {
                                     case 'end':
                                         return context$3$0.stop();
                                 }
-                            }, null, _this4);
+                            }, null, _this5);
                         })();
 
                     case 2:
@@ -964,11 +993,6 @@ var Channel = (function () {
         }
     }, {
         key: 'done',
-
-        /*
-            Registers a promise to be resolved
-            when the channel has fully ended.
-        */
         value: function done(ch) {
             return new _Promise(function (resolve) {
                 if (ch.state === STATES.ENDED) return resolve();else ch.waiting.push(resolve);
@@ -976,15 +1000,6 @@ var Channel = (function () {
         }
     }, {
         key: 'pipeline',
-
-        /*
-            Automatically builds a set of channels
-            for the provided function arguments,
-            setting up a pipe from the first channel
-            all the way down to the last channel.
-              Returns references to both
-            the first and the last channel.
-        */
         value: function pipeline() {
             var channels = [];
             var _iteratorNormalCompletion2 = true;
@@ -1021,21 +1036,21 @@ var Channel = (function () {
             });
             return [channels[0], channels[channels.length - 1]];
         }
-    }, {
-        key: 'pipe',
 
         /*
             Builds a pipeline from a parent channel
             to one or more children.
-              This will automatically pipe values from
+             This will automatically pipe values from
             the parent onto each of the children.
-              (dev note: careful, errors which are thrown from here
+             (dev note: careful, errors which are thrown from here
              do NOT bubble up to the user yet in nodejs.
              will be fixed in the future, supposedly).
         */
+    }, {
+        key: 'pipe',
         value: function pipe(parent) {
             var _parent$pipeline,
-                _this6 = this;
+                _this7 = this;
 
             for (var _len5 = arguments.length, channels = Array(_len5 > 1 ? _len5 - 1 : 0), _key5 = 1; _key5 < _len5; _key5++) {
                 channels[_key5 - 1] = arguments[_key5];
@@ -1049,7 +1064,7 @@ var Channel = (function () {
                         var _loop3, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, _ret9;
 
                         return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
-                            var _this5 = this;
+                            var _this6 = this;
 
                             while (1) switch (context$4$0.prev = context$4$0.next) {
                                 case 0:
@@ -1129,7 +1144,7 @@ var Channel = (function () {
                                                 case 'end':
                                                     return context$5$0.stop();
                                             }
-                                        }, null, _this5, [[8, 12, 16, 24], [17,, 19, 23]]);
+                                        }, null, _this6, [[8, 12, 16, 24], [17,, 19, 23]]);
                                     };
 
                                 case 1:
@@ -1159,8 +1174,9 @@ var Channel = (function () {
                                 case 'end':
                                     return context$4$0.stop();
                             }
-                        }, null, _this6);
+                        }, null, _this7);
                     })();
+                    // eslint-disable-line no-loop-func
                     parent[ACTIONS.CANCEL] = function () {
                         running = false;
                     };
@@ -1170,10 +1186,6 @@ var Channel = (function () {
         }
     }, {
         key: 'merge',
-
-        /*
-            Pipes all provided channels into a new, single destination.
-        */
         value: function merge() {
             var child = new Channel();
             var _iteratorNormalCompletion4 = true;
@@ -1215,6 +1227,10 @@ var Channel = (function () {
             var _iteratorError5 = undefined;
 
             try {
+                for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
+                    channels[_key7 - 1] = arguments[_key7];
+                }
+
                 for (var _iterator5 = _getIterator(_Array$entries(parent.pipeline)), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
                     var _step5$value = _slicedToArray(_step5.value, 2);
 
@@ -1225,10 +1241,6 @@ var Channel = (function () {
                     var _iteratorError6 = undefined;
 
                     try {
-                        for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
-                            channels[_key7 - 1] = arguments[_key7];
-                        }
-
                         for (var _iterator6 = _getIterator(channels), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
                             var ch2 = _step6.value;
 
@@ -1278,7 +1290,6 @@ Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
 
 // this error is never expected to be thrown
 // just a sanity check during development
-// need a way to empty out the list
 
 // A List containing any puts which could not be placed directly onto the buffer
 
@@ -1292,4 +1303,4 @@ Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
 // from one channel to multiple others.
 
 // An optional array of promises, to be resolved when the channel is marked as finished.
-// eslint-disable-line no-loop-func
+// noop default

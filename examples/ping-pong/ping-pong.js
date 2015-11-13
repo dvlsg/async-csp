@@ -1,4 +1,8 @@
-import Channel, {timeout} from '../../dist/channel.js';
+/* eslint-disable no-constant-condition */
+
+"use strict";
+
+import Channel, { timeout } from '../../dist/channel.js';
 let log = console.log.bind(console);
 
 class Ball {
@@ -7,17 +11,8 @@ class Ball {
     }
 }
 
-export async function run() {
-    let table = new Channel();
-    player('ping', table);
-    player('pong', table);
-    await table.put(new Ball());
-    await timeout(1000);
-    table.close();
-}
-
 async function player(name: String, table: Channel) {
-    while(true) {
+    while (true) {
         let ball = await table.take();
         if (ball === Channel.DONE)
             break;
@@ -26,4 +21,20 @@ async function player(name: String, table: Channel) {
         await timeout(100);
         await table.put(ball);
     }
+}
+
+export async function run() {
+    log('Opening ping-pong channel!');
+    let table = new Channel();
+    player('ping', table);
+    player('pong', table);
+    log('Serving ball...');
+    let ball = new Ball();
+    await table.put(ball);
+    await timeout(1000);
+    log('Closing ping-pong channel...');
+    table.close();
+    await table.done();
+    log('Channel is fully closed!');
+    log(`Ball was hit ${ball.hits} times!`);
 }

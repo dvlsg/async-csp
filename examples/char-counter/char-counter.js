@@ -1,5 +1,6 @@
-import fs from 'fs';
-import Channel, {timeout} from '../../dist/channel.js';
+"use strict";
+
+import Channel from '../../dist/channel.js';
 let log = console.log.bind(console);
 
 import text from './text.js';
@@ -19,8 +20,8 @@ function isAlphanumeric(char) {
 export async function run() {
     try {
         let start = new Date().getTime();
-        let lines = new Channel((text, accept) => {
-            for (let line of text.split('\n'))
+        let lines = new Channel((original, accept) => {
+            for (let line of original.split('\n'))
                 accept(line);
         });
 
@@ -54,7 +55,7 @@ export async function run() {
         await lines.put(text);
         lines.close(true);
         await chars.done();
-        
+
         let sorted = Object.entries(charset).sort((a, b) => {
             return a[1] > b[1] ? -1 : a[1] < b[1] ? 1 : 0;
         });

@@ -40,6 +40,10 @@ class Data {
     toString() {
         return this[ARR].join(', ');
     }
+
+    values() {
+        return [...this[ARR]];
+    }
 }
 // Data[Symbol.toStringTag] = 'Data';
 
@@ -140,11 +144,15 @@ export class FixedQueue extends Queue {
     }
 
     push(val) {
-        if (!this.full()) // throw overflow? drop overflow?
+        if (!this.full()) // throw overflow? drop overflow? allow overflow?
             return super.push(val);
     }
 
     full() {
         return this.length >= this[SIZE];
+    }
+
+    unshift(...vals) { // this isn't really a queue anymore. maybe FixedList instead?
+        return this[ARR].unshift(...vals);
     }
 }

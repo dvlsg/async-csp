@@ -72,114 +72,186 @@ async function flush(ch: Channel) {
     ch[IS_FLUSHING] = false;
 }
 
-async function _slide(ch: Channel) {
-    while (!ch.buf.full() && !ch.puts.empty()) {
-        let put = ch.puts.shift();
-        await put();
-        if (!ch.takes.empty() && !ch.buf.empty()) {
-            let val = ch.buf.shift();
-            let take = ch.takes.shift();
-            take(val);
+function wrap(val: any, transform: Function, resolve: Function) {
+    let wrapped = null;
+    if (transform instanceof Function) {
+        if (transform.length === 1) {
+            wrapped = async() => {
+                let transformed = transform(val);
+                if (transformed instanceof Promise) {
+                    let actual = await transformed;
+                    return actual;
+                }
+                return transformed;
+            };
+        }
+        else {
+            let accepted = new List();
+            if (transform.length === 2) {
+                wrapped = async() => {
+                    await transform(val, acc => {
+                        if (typeof acc !== 'undefined')
+                            accepted.push(acc);
+                    });
+                    return accepted;
+                };
+            }
+            else {
+                wrapped = () => {
+                    return new Promise(res => {
+                        transform(val, acc => {
+                            if (typeof acc !== 'undefined')
+                                accepted.push(acc);
+                        }, () => {
+                            res(accepted);
+                        });
+                    });
+                };
+            }
         }
     }
-    while (!ch.takes.empty() && !ch.buf.empty()) {
-        let val = ch.buf.shift();
-        let take = ch.takes.shift();
-        take(val);
+    else {
+        wrapped = async() => val;
+    }
+    return {
+        wrapped,
+        resolve,
+        transform,
+        val
+    };
+}
+
+async function _slide(ch: Channel) {
+    if (ch.buf) {
+        while (!ch.buf.empty() && !ch.takes.empty()) {
+            let buf = ch.buf.shift();
+            let val;
+            if (buf && buf.wrapped)
+                val = await buf.wrapped();
+            else
+                val = buf; // this is a special case caused by `from`. can we get rid of the need for this?
+            if (typeof val !== 'undefined') {
+                if (val instanceof List) { // need a way to distinguish this as a "special" array return
+                    let accepted = [...val];
+                    if (accepted.length === 0)
+                        buf.resolve();
+                    else if (accepted.length === 1) {
+                        buf.resolve();
+                        let take = ch.takes.shift();
+                        take(accepted[0]);
+                    }
+                    else /* accepted.length > 1 */ {
+                        let count = 0;
+                        let counter = () => {
+                            count++;
+                            if (count === accepted.length)
+                                buf.resolve();
+                        };
+                        let wrappers = accepted.map(acc => wrap(acc, x => x, counter));
+                        // when we use counter as the resolve, it makes us need
+                        // to call buf.resolve(), whereas we wouldn't normally,
+                        // since resolve() should have been called when moving
+                        // from put -> buf.
+
+                        // the problem is that when we use these expanded wrappers,
+                        // we need to execute the resolution. if we place on the buffer
+                        // directly, we can be sure we maintain the correct order.
+                        // if we place back on puts instead of the buffer,
+                        // we may or may not have the right order anymore.
+
+                        // another issue is what if we accept more than the buffer has space for?
+                        // what if there were already items on the buffer? do we kick them out,
+                        // and put them back in puts? that gives us essentially the same problem --
+                        // then we would have puts which don't need put.resolve() to be called,
+                        // which doesn't follow the usual pattern.
+
+                        // what to do, what to do... try to hammer out the inconsistency at some point.
+
+                        ch.buf.unshift(...wrappers); // this can expand beyond the actual buffer size. unintuitive?
+                    }
+                }
+                else {
+                    let take = ch.takes.shift();
+                    take(val);
+                }
+            }
+            if (!ch.puts.empty() && !ch.buf.full()) {
+                let put = ch.puts.shift();
+                ch.buf.push(put);
+                put.resolve();
+            }
+        }
+        while (!ch.puts.empty() && !ch.buf.full()) {
+            let put = ch.puts.shift();
+            ch.buf.push(put);
+            put.resolve();
+        }
+    }
+    else {
+        while (!ch.takes.empty() && !ch.puts.empty()) {
+            let put = ch.puts.shift();
+            let val = await put.wrapped();
+            if (typeof val !== 'undefined') {
+                if (val instanceof List) { // need a way to distinguish this as a "special" array return
+                    let accepted = [...val];
+                    if (accepted.length === 0)
+                        put.resolve();
+                    else if (accepted.length === 1) {
+                        put.resolve();
+                        let take = ch.takes.shift();
+                        take(accepted[0]);
+                    }
+                    else /* val.length > 1 */ {
+                        let count = 0;
+                        let counter = () => {
+                            count++;
+                            if (count === accepted.length)
+                                put.resolve();
+                        };
+                        let wrappers = accepted.map(acc => wrap(acc, x => x, counter));
+                        ch.puts.unshift(...wrappers);
+                    }
+                }
+                else {
+                    put.resolve();
+                    let take = ch.takes.shift();
+                    take(val);
+                }
+            }
+            else {
+                put.resolve();
+            }
+        }
     }
 }
 
-async function _slideTail(ch: Channel) {
-    while (!ch.buf.full() && !ch.tails.empty()) {
-        let tail = ch.tails.shift();
-        await tail();
-        if (!ch.takes.empty() && !ch.buf.empty()) {
-            let val = ch.buf.shift();
-            let take = ch.takes.shift();
-            take(val);
-        }
-    }
-    while (!ch.takes.empty() && !ch.buf.empty()) {
-        let val = ch.buf.shift();
-        let take = ch.takes.shift();
-        take(val);
-    }
+function canSlide(ch: Channel) {
+    return (
+        ch.buf
+            ? (!ch.buf.full() && !ch.puts.empty()) || (!ch.takes.empty() && !ch.buf.empty())
+            : (!ch.takes.empty() && !ch.puts.empty())
+    );
 }
 
 async function slide(ch: Channel) {
     if (ch[IS_SLIDING])
         return;
     ch[IS_SLIDING] = true;
-    await _slide(ch);
-    while ((!ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty())) // performance concern?
-        await _slide(ch);
-    if(ch[STATE] === STATES.CLOSED && !ch.tails.empty() && ch.buf.empty() && ch.puts.empty())
-        await _slideTail(ch);
-    if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && ch.buf.empty() && ch.puts.empty() && ch.tails.empty())
-        flush(ch);
-    ch[IS_SLIDING] = false;
-}
 
-async function _transform(ch: Channel, val: any, target: List) {
-    return new Promise((resolve, reject) => {
-        if (ch.state !== STATES.OPEN)
-            return resolve(ACTIONS.DONE);
-        if (ch.transform instanceof Function) {
-            if (ch.transform.length === 1) {
-                target.push(async () => {
-                    let transformed = await ch.transform(val); // what about errors in here?
-                    if (typeof transformed !== 'undefined')
-                        ch.buf.push(transformed);
-                    return resolve();
-                });
-            }
-            else { // transform length of either 2 or 3
-                let accepted = [];
-                let done = () => {
-                    let promises = [];
-                    for (let i = accepted.length - 1; i >= 0; i--) {
-                        let acc = accepted[i];
-                        let p = new Promise(res => { // eslint-disable-line no-loop-func
-                            target.unshift(async() => { // eslint-disable-line no-loop-func
-                                ch.buf.push(acc);
-                                res();
-                            });
-                        });
-                        promises.push(p);
-                    }
-                    Promise.all(promises)
-                        .then(resolve)
-                        .catch(reject);
-                    slide(ch); // necessary, but why?
-                };
-                if (ch.transform.length === 2) {
-                    target.push(async() => {
-                        await ch.transform(val, acc => {
-                            if (typeof acc !== 'undefined')
-                                accepted.push(acc);
-                        });
-                        done();
-                    });
-                }
-                else {
-                    target.push(async() => {
-                        ch.transform(val, acc => {
-                            if (typeof acc !== 'undefined')
-                                accepted.push(acc);
-                        }, done);
-                    });
-                }
-            }
-        }
-        else {
-            // no transform method available
-            target.push(async() => {
-                ch.buf.push(val);
-                return resolve();
-            });
-        }
-        slide(ch);
-    });
+    while (canSlide(ch))
+        await _slide(ch);
+
+    if (ch[STATE] === STATES.CLOSED && !ch.tails.empty() && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty()) {
+        ch.puts.unshift(...ch.tails);
+        ch.tails = new List(); // need a way to empty out the list
+        while (canSlide(ch))
+            await _slide(ch);
+    }
+
+    if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty() && ch.tails.empty())
+        flush(ch);
+
+    ch[IS_SLIDING] = false;
 }
 
 export function timeout(delay = 0) {
@@ -216,14 +288,14 @@ export default class Channel {
         and an optional transform function to be used by the Channel.
 
         Examples:
-            new Channel()            -> Default sized channel, no transform
-            new Channel(x => x*2)    -> Default sized channel, with transform
-            new Channel(8)           -> Specified sized channel, no transform
-            new Channel(8, x => x*2) -> Specified sized channel, with transform
+            new Channel()              -> Non buffered channel, no transform
+            new Channel(x => x * 2)    -> Non buffered channel, with transform
+            new Channel(8)             -> Buffered channel, no transform
+            new Channel(8, x => x * 2) -> Buffered channel, with transform
     */
     constructor(... argv) {
-        let size = Channel.DEFAULT_SIZE;
-        let transform = x => x;
+        let size;
+        let transform = null;
         if (typeof argv[0] === 'function')
             transform = argv[0];
         if (typeof argv[0] === 'number') {
@@ -234,11 +306,13 @@ export default class Channel {
         this.puts      = new List();
         this.tails     = new List();
         this.takes     = new List();
-        this.buf       = new FixedQueue(size);
         this.transform = transform;
         this.pipeline  = [];
         this.waiting   = [];
         this[STATE]    = STATES.OPEN;
+
+        if (size)
+            this.buf = new FixedQueue(size);
     }
 
     /*
@@ -275,7 +349,9 @@ export default class Channel {
         added to any puts which are waiting for space in the buffer.
     */
     get length() {
-        return this.buf.length + this.puts.length;
+        if (this.buf)
+            return this.buf.length + this.puts.length;
+        return this.puts.length;
     }
 
     /*
@@ -283,7 +359,7 @@ export default class Channel {
         which is interpreted as the size of the buffer.
     */
     get size() {
-        return this.buf.size;
+        return this.buf ? this.buf.size : undefined;
     }
 
     /*
@@ -296,7 +372,7 @@ export default class Channel {
         ch.state = STATES.CLOSED;
         if (all)
             ch[SHOULD_CLOSE] = true;
-        slide(ch);
+        setTimeout(() => slide(ch)); // we have a timing problem with pipes.. this resolves it, but is hacky.
     }
 
     /*
@@ -311,7 +387,9 @@ export default class Channel {
         has any values left for `take` to use.
     */
     static empty(ch: Channel) {
-        return ch.buf.empty() && ch.puts.empty();
+        if (ch.buf)
+            return ch.buf.empty() && ch.puts.empty();
+        return ch.puts.empty();
     }
 
     /*
@@ -328,7 +406,13 @@ export default class Channel {
         onto Channel.puts to be resolved when buffer space is available.
     */
     static put(ch: Channel, val: any) {
-        return _transform(ch, val, ch.puts);
+        return new Promise((resolve) => {
+            if (ch.state !== STATES.OPEN)
+                return resolve(ACTIONS.DONE);
+            let put = wrap(val, ch.transform, resolve);
+            ch.puts.push(put);
+            slide(ch);
+        });
     }
 
     /*
@@ -361,7 +445,13 @@ export default class Channel {
     }
 
     static tail(ch: Channel, val: any) {
-        return _transform(ch, val, ch.tails);
+        return new Promise((resolve) => {
+            if (ch.state !== STATES.OPEN)
+                return resolve(ACTIONS.DONE);
+            let tail = wrap(val, ch.transform, resolve);
+            ch.tails.push(tail);
+            slide(ch);
+        });
     }
 
     /*
@@ -452,7 +542,7 @@ export default class Channel {
             if (ch.state === STATES.ENDED)
                 return resolve();
             else
-                ch.waiting.push(() => { resolve(); });
+                ch.waiting.push(resolve);
         });
     }
 
@@ -542,7 +632,6 @@ export default class Channel {
         return Channel.merge(this, ...channels);
     }
 
-    // UNTESTED. CARE.
     static unpipe(parent: Channel, ...channels: Array<Channel>) {
         for (let [index, pipe] of Array.entries(parent.pipeline)) {
             for (let ch2 of channels) {
@@ -560,5 +649,4 @@ export default class Channel {
     }
 }
 
-Channel.DEFAULT_SIZE = 8;
 Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it

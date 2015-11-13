@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 var _createClass = require('babel-runtime/helpers/create-class')['default'];
 
@@ -122,85 +122,309 @@ function flush(ch) {
     }, null, this);
 }
 
+function wrap(val, transform, resolve) {
+    var _this = this;
+
+    var wrapped = null;
+    if (transform instanceof Function) {
+        if (transform.length === 1) {
+            wrapped = function callee$1$0() {
+                var transformed, actual;
+                return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
+                    while (1) switch (context$2$0.prev = context$2$0.next) {
+                        case 0:
+                            transformed = transform(val);
+
+                            if (!(transformed instanceof _Promise)) {
+                                context$2$0.next = 6;
+                                break;
+                            }
+
+                            context$2$0.next = 4;
+                            return _regeneratorRuntime.awrap(transformed);
+
+                        case 4:
+                            actual = context$2$0.sent;
+                            return context$2$0.abrupt('return', actual);
+
+                        case 6:
+                            return context$2$0.abrupt('return', transformed);
+
+                        case 7:
+                        case 'end':
+                            return context$2$0.stop();
+                    }
+                }, null, _this);
+            };
+        } else {
+            (function () {
+                var accepted = new _dataStructuresJs.List();
+                if (transform.length === 2) {
+                    wrapped = function callee$2$0() {
+                        return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
+                            while (1) switch (context$3$0.prev = context$3$0.next) {
+                                case 0:
+                                    context$3$0.next = 2;
+                                    return _regeneratorRuntime.awrap(transform(val, function (acc) {
+                                        if (typeof acc !== 'undefined') accepted.push(acc);
+                                    }));
+
+                                case 2:
+                                    return context$3$0.abrupt('return', accepted);
+
+                                case 3:
+                                case 'end':
+                                    return context$3$0.stop();
+                            }
+                        }, null, _this);
+                    };
+                } else {
+                    wrapped = function () {
+                        return new _Promise(function (res) {
+                            transform(val, function (acc) {
+                                if (typeof acc !== 'undefined') accepted.push(acc);
+                            }, function () {
+                                res(accepted);
+                            });
+                        });
+                    };
+                }
+            })();
+        }
+    } else {
+        wrapped = function callee$1$0() {
+            return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
+                while (1) switch (context$2$0.prev = context$2$0.next) {
+                    case 0:
+                        return context$2$0.abrupt('return', val);
+
+                    case 1:
+                    case 'end':
+                        return context$2$0.stop();
+                }
+            }, null, _this);
+        };
+    }
+    return {
+        wrapped: wrapped,
+        resolve: resolve,
+        transform: transform,
+        val: val
+    };
+}
+
 function _slide(ch) {
-    var put, val, take;
+    var _loop, put, _loop2;
+
     return _regeneratorRuntime.async(function _slide$(context$1$0) {
+        var _this2 = this;
+
         while (1) switch (context$1$0.prev = context$1$0.next) {
             case 0:
-                if (!(!ch.buf.full() && !ch.puts.empty())) {
+                if (!ch.buf) {
+                    context$1$0.next = 10;
+                    break;
+                }
+
+                _loop = function callee$1$0() {
+                    var buf, val, take, put;
+                    return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
+                        while (1) switch (context$2$0.prev = context$2$0.next) {
+                            case 0:
+                                buf = ch.buf.shift();
+                                val = undefined;
+
+                                if (!(buf && buf.wrapped)) {
+                                    context$2$0.next = 8;
+                                    break;
+                                }
+
+                                context$2$0.next = 5;
+                                return _regeneratorRuntime.awrap(buf.wrapped());
+
+                            case 5:
+                                val = context$2$0.sent;
+                                context$2$0.next = 9;
+                                break;
+
+                            case 8:
+                                val = buf;
+
+                            case 9:
+                                // this is a special case caused by `from`. can we get rid of the need for this?
+                                if (typeof val !== 'undefined') {
+                                    if (val instanceof _dataStructuresJs.List) {
+                                        (function () {
+                                            // need a way to distinguish this as a "special" array return
+                                            var accepted = [].concat(_toConsumableArray(val));
+                                            if (accepted.length === 0) buf.resolve();else if (accepted.length === 1) {
+                                                buf.resolve();
+                                                var take = ch.takes.shift();
+                                                take(accepted[0]);
+                                            } else /* accepted.length > 1 */{
+                                                    (function () {
+                                                        var _ch$buf;
+
+                                                        var count = 0;
+                                                        var counter = function counter() {
+                                                            count++;
+                                                            if (count === accepted.length) buf.resolve();
+                                                        };
+                                                        var wrappers = accepted.map(function (acc) {
+                                                            return wrap(acc, function (x) {
+                                                                return x;
+                                                            }, counter);
+                                                        });
+                                                        // when we use counter as the resolve, it makes us need
+                                                        // to call buf.resolve(), whereas we wouldn't normally,
+                                                        // since resolve() should have been called when moving
+                                                        // from put -> buf.
+
+                                                        // the problem is that when we use these expanded wrappers,
+                                                        // we need to execute the resolution. if we place on the buffer
+                                                        // directly, we can be sure we maintain the correct order.
+                                                        // if we place back on puts instead of the buffer,
+                                                        // we may or may not have the right order anymore.
+
+                                                        // another issue is what if we accept more than the buffer has space for?
+                                                        // what if there were already items on the buffer? do we kick them out,
+                                                        // and put them back in puts? that gives us essentially the same problem --
+                                                        // then we would have puts which don't need put.resolve() to be called,
+                                                        // which doesn't follow the usual pattern.
+
+                                                        // what to do, what to do... try to hammer out the inconsistency at some point.
+
+                                                        (_ch$buf = ch.buf).unshift.apply(_ch$buf, _toConsumableArray(wrappers)); // this can expand beyond the actual buffer size. unintuitive?
+                                                    })();
+                                                }
+                                        })();
+                                    } else {
+                                        take = ch.takes.shift();
+
+                                        take(val);
+                                    }
+                                }
+                                if (!ch.puts.empty() && !ch.buf.full()) {
+                                    put = ch.puts.shift();
+
+                                    ch.buf.push(put);
+                                    put.resolve();
+                                }
+
+                            case 11:
+                            case 'end':
+                                return context$2$0.stop();
+                        }
+                    }, null, _this2);
+                };
+
+            case 2:
+                if (!(!ch.buf.empty() && !ch.takes.empty())) {
                     context$1$0.next = 7;
                     break;
                 }
 
-                put = ch.puts.shift();
-                context$1$0.next = 4;
-                return _regeneratorRuntime.awrap(put());
+                context$1$0.next = 5;
+                return _regeneratorRuntime.awrap(_loop());
 
-            case 4:
-                if (!ch.takes.empty() && !ch.buf.empty()) {
-                    val = ch.buf.shift();
-                    take = ch.takes.shift();
-
-                    take(val);
-                }
-                context$1$0.next = 0;
+            case 5:
+                context$1$0.next = 2;
                 break;
 
             case 7:
-                while (!ch.takes.empty() && !ch.buf.empty()) {
-                    val = ch.buf.shift();
-                    take = ch.takes.shift();
+                while (!ch.puts.empty() && !ch.buf.full()) {
+                    put = ch.puts.shift();
 
-                    take(val);
+                    ch.buf.push(put);
+                    put.resolve();
+                }
+                context$1$0.next = 16;
+                break;
+
+            case 10:
+                _loop2 = function callee$1$0() {
+                    var put, val, take;
+                    return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
+                        while (1) switch (context$2$0.prev = context$2$0.next) {
+                            case 0:
+                                put = ch.puts.shift();
+                                context$2$0.next = 3;
+                                return _regeneratorRuntime.awrap(put.wrapped());
+
+                            case 3:
+                                val = context$2$0.sent;
+
+                                if (typeof val !== 'undefined') {
+                                    if (val instanceof _dataStructuresJs.List) {
+                                        (function () {
+                                            // need a way to distinguish this as a "special" array return
+                                            var accepted = [].concat(_toConsumableArray(val));
+                                            if (accepted.length === 0) put.resolve();else if (accepted.length === 1) {
+                                                put.resolve();
+                                                var take = ch.takes.shift();
+                                                take(accepted[0]);
+                                            } else /* val.length > 1 */{
+                                                    (function () {
+                                                        var _ch$puts;
+
+                                                        var count = 0;
+                                                        var counter = function counter() {
+                                                            count++;
+                                                            if (count === accepted.length) put.resolve();
+                                                        };
+                                                        var wrappers = accepted.map(function (acc) {
+                                                            return wrap(acc, function (x) {
+                                                                return x;
+                                                            }, counter);
+                                                        });
+                                                        (_ch$puts = ch.puts).unshift.apply(_ch$puts, _toConsumableArray(wrappers));
+                                                    })();
+                                                }
+                                        })();
+                                    } else {
+                                        put.resolve();
+                                        take = ch.takes.shift();
+
+                                        take(val);
+                                    }
+                                } else {
+                                    put.resolve();
+                                }
+
+                            case 5:
+                            case 'end':
+                                return context$2$0.stop();
+                        }
+                    }, null, _this2);
+                };
+
+            case 11:
+                if (!(!ch.takes.empty() && !ch.puts.empty())) {
+                    context$1$0.next = 16;
+                    break;
                 }
 
-            case 8:
+                context$1$0.next = 14;
+                return _regeneratorRuntime.awrap(_loop2());
+
+            case 14:
+                context$1$0.next = 11;
+                break;
+
+            case 16:
             case 'end':
                 return context$1$0.stop();
         }
     }, null, this);
 }
 
-function _slideTail(ch) {
-    var tail, val, take;
-    return _regeneratorRuntime.async(function _slideTail$(context$1$0) {
-        while (1) switch (context$1$0.prev = context$1$0.next) {
-            case 0:
-                if (!(!ch.buf.full() && !ch.tails.empty())) {
-                    context$1$0.next = 7;
-                    break;
-                }
-
-                tail = ch.tails.shift();
-                context$1$0.next = 4;
-                return _regeneratorRuntime.awrap(tail());
-
-            case 4:
-                if (!ch.takes.empty() && !ch.buf.empty()) {
-                    val = ch.buf.shift();
-                    take = ch.takes.shift();
-
-                    take(val);
-                }
-                context$1$0.next = 0;
-                break;
-
-            case 7:
-                while (!ch.takes.empty() && !ch.buf.empty()) {
-                    val = ch.buf.shift();
-                    take = ch.takes.shift();
-
-                    take(val);
-                }
-
-            case 8:
-            case 'end':
-                return context$1$0.stop();
-        }
-    }, null, this);
+function canSlide(ch) {
+    return ch.buf ? !ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty() : !ch.takes.empty() && !ch.puts.empty();
 }
 
 function slide(ch) {
+    var _ch$puts2;
+
     return _regeneratorRuntime.async(function slide$(context$1$0) {
         while (1) switch (context$1$0.prev = context$1$0.next) {
             case 0:
@@ -213,164 +437,49 @@ function slide(ch) {
 
             case 2:
                 ch[IS_SLIDING] = true;
-                context$1$0.next = 5;
-                return _regeneratorRuntime.awrap(_slide(ch));
 
-            case 5:
-                if (!(!ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty())) {
-                    context$1$0.next = 10;
+            case 3:
+                if (!canSlide(ch)) {
+                    context$1$0.next = 8;
                     break;
                 }
 
-                context$1$0.next = 8;
+                context$1$0.next = 6;
                 return _regeneratorRuntime.awrap(_slide(ch));
 
-            case 8:
-                context$1$0.next = 5;
+            case 6:
+                context$1$0.next = 3;
                 break;
 
-            case 10:
-                if (!(ch[STATE] === STATES.CLOSED && !ch.tails.empty() && ch.buf.empty() && ch.puts.empty())) {
-                    context$1$0.next = 13;
+            case 8:
+                if (!(ch[STATE] === STATES.CLOSED && !ch.tails.empty() && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty())) {
+                    context$1$0.next = 16;
                     break;
                 }
 
-                context$1$0.next = 13;
-                return _regeneratorRuntime.awrap(_slideTail(ch));
+                (_ch$puts2 = ch.puts).unshift.apply(_ch$puts2, _toConsumableArray(ch.tails));
+                ch.tails = new _dataStructuresJs.List();
 
-            case 13:
-                if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && ch.buf.empty() && ch.puts.empty() && ch.tails.empty()) flush(ch);
+            case 11:
+                if (!canSlide(ch)) {
+                    context$1$0.next = 16;
+                    break;
+                }
+
+                context$1$0.next = 14;
+                return _regeneratorRuntime.awrap(_slide(ch));
+
+            case 14:
+                context$1$0.next = 11;
+                break;
+
+            case 16:
+
+                if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty() && ch.tails.empty()) flush(ch);
+
                 ch[IS_SLIDING] = false;
 
-            case 15:
-            case 'end':
-                return context$1$0.stop();
-        }
-    }, null, this);
-}
-
-function _transform(ch, val, target) {
-    return _regeneratorRuntime.async(function _transform$(context$1$0) {
-        var _this = this;
-
-        while (1) switch (context$1$0.prev = context$1$0.next) {
-            case 0:
-                return context$1$0.abrupt('return', new _Promise(function (resolve, reject) {
-                    if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
-                    if (ch.transform instanceof Function) {
-                        if (ch.transform.length === 1) {
-                            target.push(function callee$2$0() {
-                                var transformed;
-                                return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
-                                    while (1) switch (context$3$0.prev = context$3$0.next) {
-                                        case 0:
-                                            context$3$0.next = 2;
-                                            return _regeneratorRuntime.awrap(ch.transform(val));
-
-                                        case 2:
-                                            transformed = context$3$0.sent;
-                                            // what about errors in here?
-                                            if (typeof transformed !== 'undefined') ch.buf.push(transformed);
-                                            return context$3$0.abrupt('return', resolve());
-
-                                        case 5:
-                                        case 'end':
-                                            return context$3$0.stop();
-                                    }
-                                }, null, _this);
-                            });
-                        } else {
-                            (function () {
-                                // transform length of either 2 or 3
-                                var accepted = [];
-                                var done = function done() {
-                                    var promises = [];
-
-                                    var _loop = function (i) {
-                                        var acc = accepted[i];
-                                        var p = new _Promise(function (res) {
-                                            // eslint-disable-line no-loop-func
-                                            target.unshift(function callee$6$0() {
-                                                return _regeneratorRuntime.async(function callee$6$0$(context$7$0) {
-                                                    while (1) switch (context$7$0.prev = context$7$0.next) {
-                                                        case 0:
-                                                            // eslint-disable-line no-loop-func
-                                                            ch.buf.push(acc);
-                                                            res();
-
-                                                        case 2:
-                                                        case 'end':
-                                                            return context$7$0.stop();
-                                                    }
-                                                }, null, _this);
-                                            });
-                                        });
-                                        promises.push(p);
-                                    };
-
-                                    for (var i = accepted.length - 1; i >= 0; i--) {
-                                        _loop(i);
-                                    }
-                                    _Promise.all(promises).then(resolve)['catch'](reject);
-                                    slide(ch); // necessary, but why?
-                                };
-                                if (ch.transform.length === 2) {
-                                    target.push(function callee$3$0() {
-                                        return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
-                                            while (1) switch (context$4$0.prev = context$4$0.next) {
-                                                case 0:
-                                                    context$4$0.next = 2;
-                                                    return _regeneratorRuntime.awrap(ch.transform(val, function (acc) {
-                                                        if (typeof acc !== 'undefined') accepted.push(acc);
-                                                    }));
-
-                                                case 2:
-                                                    done();
-
-                                                case 3:
-                                                case 'end':
-                                                    return context$4$0.stop();
-                                            }
-                                        }, null, _this);
-                                    });
-                                } else {
-                                    target.push(function callee$3$0() {
-                                        return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
-                                            while (1) switch (context$4$0.prev = context$4$0.next) {
-                                                case 0:
-                                                    ch.transform(val, function (acc) {
-                                                        if (typeof acc !== 'undefined') accepted.push(acc);
-                                                    }, done);
-
-                                                case 1:
-                                                case 'end':
-                                                    return context$4$0.stop();
-                                            }
-                                        }, null, _this);
-                                    });
-                                }
-                            })();
-                        }
-                    } else {
-                        // no transform method available
-                        target.push(function callee$2$0() {
-                            return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
-                                while (1) switch (context$3$0.prev = context$3$0.next) {
-                                    case 0:
-                                        ch.buf.push(val);
-                                        return context$3$0.abrupt('return', resolve());
-
-                                    case 2:
-                                    case 'end':
-                                        return context$3$0.stop();
-                                }
-                            }, null, _this);
-                        });
-                    }
-                    slide(ch);
-                }));
-
-            case 1:
+            case 18:
             case 'end':
                 return context$1$0.stop();
         }
@@ -378,7 +487,7 @@ function _transform(ch, val, target) {
 }
 
 function timeout() {
-    var delay = arguments.length <= 0 || arguments[0] === undefined ? 0 : arguments[0];
+    var delay = arguments[0] === undefined ? 0 : arguments[0];
 
     return new _Promise(function (resolve) {
         setTimeout(resolve, delay);
@@ -389,22 +498,20 @@ var Channel = (function () {
 
     /*
         Default constructor for a Channel.
-         Accepts an optional size for the internal buffer,
+          Accepts an optional size for the internal buffer,
         and an optional transform function to be used by the Channel.
-         Examples:
-            new Channel()            -> Default sized channel, no transform
-            new Channel(x => x*2)    -> Default sized channel, with transform
-            new Channel(8)           -> Specified sized channel, no transform
-            new Channel(8, x => x*2) -> Specified sized channel, with transform
+          Examples:
+            new Channel()              -> Non buffered channel, no transform
+            new Channel(x => x * 2)    -> Non buffered channel, with transform
+            new Channel(8)             -> Buffered channel, no transform
+            new Channel(8, x => x * 2) -> Buffered channel, with transform
     */
 
     function Channel() {
         _classCallCheck(this, Channel);
 
-        var size = Channel.DEFAULT_SIZE;
-        var transform = function transform(x) {
-            return x;
-        };
+        var size = undefined;
+        var transform = null;
         if (typeof arguments[0] === 'function') transform = arguments[0];
         if (typeof arguments[0] === 'number') {
             size = arguments[0];
@@ -413,17 +520,13 @@ var Channel = (function () {
         this.puts = new _dataStructuresJs.List();
         this.tails = new _dataStructuresJs.List();
         this.takes = new _dataStructuresJs.List();
-        this.buf = new _dataStructuresJs.FixedQueue(size);
         this.transform = transform;
         this.pipeline = [];
         this.waiting = [];
         this[STATE] = STATES.OPEN;
-    }
 
-    /*
-        A helper constructor which will convert any iterable into a channel,
-        placing all of the iterable's values onto that channel.
-    */
+        if (size) this.buf = new _dataStructuresJs.FixedQueue(size);
+    }
 
     _createClass(Channel, [{
         key: 'close',
@@ -432,15 +535,10 @@ var Channel = (function () {
             Calls Channel.close for `this`, `all`.
         */
         value: function close() {
-            var all = arguments.length <= 0 || arguments[0] === undefined ? false : arguments[0];
+            var all = arguments[0] === undefined ? false : arguments[0];
 
             return Channel.close(this, all);
         }
-
-        /*
-            Determines if a channel
-            has any values left for `take` to use.
-        */
     }, {
         key: 'empty',
 
@@ -450,12 +548,6 @@ var Channel = (function () {
         value: function empty() {
             return Channel.empty(this);
         }
-
-        /*
-            Places a new value onto the provided channel.
-             If the buffer is full, the promise will be pushed
-            onto Channel.puts to be resolved when buffer space is available.
-        */
     }, {
         key: 'put',
 
@@ -465,12 +557,6 @@ var Channel = (function () {
         value: function put(val) {
             return Channel.put(this, val);
         }
-
-        /*
-            Takes the first value from the provided channel.
-             If no value is provided, the promise will be pushed
-            onto Channel.takes to be resolved when a value is available.
-        */
     }, {
         key: 'take',
 
@@ -489,11 +575,6 @@ var Channel = (function () {
         value: function tail(val) {
             return Channel.tail(this, val);
         }
-
-        /*
-            Helper method for putting values onto a channel
-            from a provided producer whenever there is space.
-        */
     }, {
         key: 'produce',
 
@@ -503,11 +584,6 @@ var Channel = (function () {
         value: function produce(producer) {
             return Channel.produce(this, producer);
         }
-
-        /*
-            Helper method for executing a provided consumer
-            each time a channel value is available.
-        */
     }, {
         key: 'consume',
 
@@ -515,15 +591,10 @@ var Channel = (function () {
             Calls Channel.consume for `this`, `consumer`.
         */
         value: function consume() {
-            var consumer = arguments.length <= 0 || arguments[0] === undefined ? function () {} : arguments[0];
+            var consumer = arguments[0] === undefined ? function () {} : arguments[0];
 
             return Channel.consume(this, consumer);
         }
-
-        /*
-            Registers a promise to be resolved
-            when the channel has fully ended.
-        */
     }, {
         key: 'done',
 
@@ -533,15 +604,6 @@ var Channel = (function () {
         value: function done() {
             return Channel.done(this);
         }
-
-        /*
-            Automatically builds a set of channels
-            for the provided function arguments,
-            setting up a pipe from the first channel
-            all the way down to the last channel.
-             Returns references to both
-            the first and the last channel.
-        */
     }, {
         key: 'pipe',
 
@@ -555,10 +617,6 @@ var Channel = (function () {
 
             return Channel.pipe.apply(Channel, [this].concat(channels));
         }
-
-        /*
-            Pipes all provided channels into a new, single destination.
-        */
     }, {
         key: 'merge',
 
@@ -572,8 +630,6 @@ var Channel = (function () {
 
             return Channel.merge.apply(Channel, [this].concat(channels));
         }
-
-        // UNTESTED. CARE.
     }, {
         key: 'unpipe',
         value: function unpipe() {
@@ -599,37 +655,37 @@ var Channel = (function () {
         get: function get() {
             return this[STATE];
         }
+    }, {
+        key: 'length',
 
         /*
             Gets the length of the channel,
             which is interpreted as the current length of the buffer
             added to any puts which are waiting for space in the buffer.
         */
-    }, {
-        key: 'length',
         get: function get() {
-            return this.buf.length + this.puts.length;
+            if (this.buf) return this.buf.length + this.puts.length;
+            return this.puts.length;
         }
+    }, {
+        key: 'size',
 
         /*
             Gets the size of the channel,
             which is interpreted as the size of the buffer.
         */
-    }, {
-        key: 'size',
         get: function get() {
-            return this.buf.size;
+            return this.buf ? this.buf.size : undefined;
         }
-
-        /*
-            Marks a channel to no longer be writable.
-             Accepts an optional boolean `all`, to signify
-            whether or not to close the entire pipeline.
-        */
     }], [{
         key: 'from',
+
+        /*
+            A helper constructor which will convert any iterable into a channel,
+            placing all of the iterable's values onto that channel.
+        */
         value: function from(iterable) {
-            var keepOpen = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
+            var keepOpen = arguments[1] === undefined ? false : arguments[1];
 
             var arr = [].concat(_toConsumableArray(iterable));
             var ch = new Channel(arr.length);
@@ -663,25 +719,56 @@ var Channel = (function () {
         }
     }, {
         key: 'close',
+
+        /*
+            Marks a channel to no longer be writable.
+              Accepts an optional boolean `all`, to signify
+            whether or not to close the entire pipeline.
+        */
         value: function close(ch) {
-            var all = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
+            var all = arguments[1] === undefined ? false : arguments[1];
 
             ch.state = STATES.CLOSED;
             if (all) ch[SHOULD_CLOSE] = true;
-            slide(ch);
+            setTimeout(function () {
+                return slide(ch);
+            }); // we have a timing problem with pipes.. this resolves it, but is hacky.
         }
     }, {
         key: 'empty',
+
+        /*
+            Determines if a channel
+            has any values left for `take` to use.
+        */
         value: function empty(ch) {
-            return ch.buf.empty() && ch.puts.empty();
+            if (ch.buf) return ch.buf.empty() && ch.puts.empty();
+            return ch.puts.empty();
         }
     }, {
         key: 'put',
+
+        /*
+            Places a new value onto the provided channel.
+              If the buffer is full, the promise will be pushed
+            onto Channel.puts to be resolved when buffer space is available.
+        */
         value: function put(ch, val) {
-            return _transform(ch, val, ch.puts);
+            return new _Promise(function (resolve) {
+                if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
+                var put = wrap(val, ch.transform, resolve);
+                ch.puts.push(put);
+                slide(ch);
+            });
         }
     }, {
         key: 'take',
+
+        /*
+            Takes the first value from the provided channel.
+              If no value is provided, the promise will be pushed
+            onto Channel.takes to be resolved when a value is available.
+        */
         value: function take(ch) {
             return new _Promise(function (resolve) {
                 if (ch.state === STATES.ENDED) return resolve(ACTIONS.DONE);
@@ -692,14 +779,24 @@ var Channel = (function () {
     }, {
         key: 'tail',
         value: function tail(ch, val) {
-            return _transform(ch, val, ch.tails);
+            return new _Promise(function (resolve) {
+                if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
+                var tail = wrap(val, ch.transform, resolve);
+                ch.tails.push(tail);
+                slide(ch);
+            });
         }
     }, {
         key: 'produce',
+
+        /*
+            Helper method for putting values onto a channel
+            from a provided producer whenever there is space.
+        */
         value: function produce(ch, producer) {
             var spin;
             return _regeneratorRuntime.async(function produce$(context$2$0) {
-                var _this2 = this;
+                var _this3 = this;
 
                 while (1) switch (context$2$0.prev = context$2$0.next) {
                     case 0:
@@ -769,7 +866,7 @@ var Channel = (function () {
                                     case 'end':
                                         return context$3$0.stop();
                                 }
-                            }, null, _this2, [[0, 20]]);
+                            }, null, _this3, [[0, 20]]);
                         })();
                         return context$2$0.abrupt('return', function () {
                             spin = false;
@@ -783,10 +880,16 @@ var Channel = (function () {
         }
     }, {
         key: 'consume',
+
+        /*
+            Helper method for executing a provided consumer
+            each time a channel value is available.
+        */
         value: function consume(ch) {
-            var consumer = arguments.length <= 1 || arguments[1] === undefined ? function () {} : arguments[1];
+            var consumer = arguments[1] === undefined ? function () {} // noop default
+            : arguments[1];
             return _regeneratorRuntime.async(function consume$(context$2$0) {
-                var _this3 = this;
+                var _this4 = this;
 
                 while (1) switch (context$2$0.prev = context$2$0.next) {
                     case 0:
@@ -850,7 +953,7 @@ var Channel = (function () {
                                     case 'end':
                                         return context$3$0.stop();
                                 }
-                            }, null, _this3);
+                            }, null, _this4);
                         })();
 
                     case 2:
@@ -861,15 +964,27 @@ var Channel = (function () {
         }
     }, {
         key: 'done',
+
+        /*
+            Registers a promise to be resolved
+            when the channel has fully ended.
+        */
         value: function done(ch) {
             return new _Promise(function (resolve) {
-                if (ch.state === STATES.ENDED) return resolve();else ch.waiting.push(function () {
-                    resolve();
-                });
+                if (ch.state === STATES.ENDED) return resolve();else ch.waiting.push(resolve);
             });
         }
     }, {
         key: 'pipeline',
+
+        /*
+            Automatically builds a set of channels
+            for the provided function arguments,
+            setting up a pipe from the first channel
+            all the way down to the last channel.
+              Returns references to both
+            the first and the last channel.
+        */
         value: function pipeline() {
             var channels = [];
             var _iteratorNormalCompletion2 = true;
@@ -906,21 +1021,21 @@ var Channel = (function () {
             });
             return [channels[0], channels[channels.length - 1]];
         }
+    }, {
+        key: 'pipe',
 
         /*
             Builds a pipeline from a parent channel
             to one or more children.
-             This will automatically pipe values from
+              This will automatically pipe values from
             the parent onto each of the children.
-             (dev note: careful, errors which are thrown from here
+              (dev note: careful, errors which are thrown from here
              do NOT bubble up to the user yet in nodejs.
              will be fixed in the future, supposedly).
         */
-    }, {
-        key: 'pipe',
         value: function pipe(parent) {
             var _parent$pipeline,
-                _this5 = this;
+                _this6 = this;
 
             for (var _len5 = arguments.length, channels = Array(_len5 > 1 ? _len5 - 1 : 0), _key5 = 1; _key5 < _len5; _key5++) {
                 channels[_key5 - 1] = arguments[_key5];
@@ -931,14 +1046,14 @@ var Channel = (function () {
                 (function () {
                     var running = true;
                     (function callee$3$0() {
-                        var _loop2, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, _ret4;
+                        var _loop3, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, _ret9;
 
                         return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
-                            var _this4 = this;
+                            var _this5 = this;
 
                             while (1) switch (context$4$0.prev = context$4$0.next) {
                                 case 0:
-                                    _loop2 = function callee$4$0() {
+                                    _loop3 = function callee$4$0() {
                                         var val, channel;
                                         return _regeneratorRuntime.async(function callee$4$0$(context$5$0) {
                                             while (1) switch (context$5$0.prev = context$5$0.next) {
@@ -1014,7 +1129,7 @@ var Channel = (function () {
                                                 case 'end':
                                                     return context$5$0.stop();
                                             }
-                                        }, null, _this4, [[8, 12, 16, 24], [17,, 19, 23]]);
+                                        }, null, _this5, [[8, 12, 16, 24], [17,, 19, 23]]);
                                     };
 
                                 case 1:
@@ -1024,12 +1139,12 @@ var Channel = (function () {
                                     }
 
                                     context$4$0.next = 4;
-                                    return _regeneratorRuntime.awrap(_loop2());
+                                    return _regeneratorRuntime.awrap(_loop3());
 
                                 case 4:
-                                    _ret4 = context$4$0.sent;
+                                    _ret9 = context$4$0.sent;
 
-                                    if (!(_ret4 === 'break')) {
+                                    if (!(_ret9 === 'break')) {
                                         context$4$0.next = 7;
                                         break;
                                     }
@@ -1044,9 +1159,8 @@ var Channel = (function () {
                                 case 'end':
                                     return context$4$0.stop();
                             }
-                        }, null, _this5);
+                        }, null, _this6);
                     })();
-                    // eslint-disable-line no-loop-func
                     parent[ACTIONS.CANCEL] = function () {
                         running = false;
                     };
@@ -1056,6 +1170,10 @@ var Channel = (function () {
         }
     }, {
         key: 'merge',
+
+        /*
+            Pipes all provided channels into a new, single destination.
+        */
         value: function merge() {
             var child = new Channel();
             var _iteratorNormalCompletion4 = true;
@@ -1097,10 +1215,6 @@ var Channel = (function () {
             var _iteratorError5 = undefined;
 
             try {
-                for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
-                    channels[_key7 - 1] = arguments[_key7];
-                }
-
                 for (var _iterator5 = _getIterator(_Array$entries(parent.pipeline)), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
                     var _step5$value = _slicedToArray(_step5.value, 2);
 
@@ -1111,6 +1225,10 @@ var Channel = (function () {
                     var _iteratorError6 = undefined;
 
                     try {
+                        for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
+                            channels[_key7 - 1] = arguments[_key7];
+                        }
+
                         for (var _iterator6 = _getIterator(channels), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
                             var ch2 = _step6.value;
 
@@ -1156,12 +1274,11 @@ var Channel = (function () {
 
 exports['default'] = Channel;
 
-Channel.DEFAULT_SIZE = 8;
 Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
 
 // this error is never expected to be thrown
 // just a sanity check during development
-// performance concern?
+// need a way to empty out the list
 
 // A List containing any puts which could not be placed directly onto the buffer
 
@@ -1175,4 +1292,4 @@ Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
 // from one channel to multiple others.
 
 // An optional array of promises, to be resolved when the channel is marked as finished.
-// noop default
+// eslint-disable-line no-loop-func

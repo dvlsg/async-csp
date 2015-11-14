@@ -565,17 +565,23 @@ export default class Channel {
         Returns references to both
         the first and the last channel.
     */
-    static pipeline(...functions) {
-        let channels = [];
-        for (let fn of functions)
-            channels.push(new Channel(fn));
-        channels.reduce((x, y) => {
-            return x.pipe(y);
-        });
-        return [
-              channels[0]
-            , channels[channels.length - 1]
-        ];
+    static pipeline(...args) {
+        let first = null;
+        let last = null;
+        if (args.length === 0) {
+            first = new Channel();
+            last = first;
+        }
+        else {
+            if (Array.isArray(args[0]))
+                args = [ ...args[0] ];
+            let channels = args
+                .filter(x => x instanceof Function)
+                .map(fn => new Channel(fn));
+            first = channels[0];
+            last = channels.reduce((x, y) => x.pipe(y));
+        }
+        return [ first, last ];
     }
 
     /*

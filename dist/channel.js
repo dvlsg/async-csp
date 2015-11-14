@@ -1002,40 +1002,29 @@ var Channel = (function () {
     }, {
         key: 'pipeline',
         value: function pipeline() {
-            var channels = [];
-            var _iteratorNormalCompletion2 = true;
-            var _didIteratorError2 = false;
-            var _iteratorError2 = undefined;
+            var first = null;
+            var last = null;
 
-            try {
-                for (var _len4 = arguments.length, functions = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-                    functions[_key4] = arguments[_key4];
-                }
-
-                for (var _iterator2 = _getIterator(functions), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                    var fn = _step2.value;
-
-                    channels.push(new Channel(fn));
-                }
-            } catch (err) {
-                _didIteratorError2 = true;
-                _iteratorError2 = err;
-            } finally {
-                try {
-                    if (!_iteratorNormalCompletion2 && _iterator2['return']) {
-                        _iterator2['return']();
-                    }
-                } finally {
-                    if (_didIteratorError2) {
-                        throw _iteratorError2;
-                    }
-                }
+            for (var _len4 = arguments.length, args = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+                args[_key4] = arguments[_key4];
             }
 
-            channels.reduce(function (x, y) {
-                return x.pipe(y);
-            });
-            return [channels[0], channels[channels.length - 1]];
+            if (args.length === 0) {
+                first = new Channel();
+                last = first;
+            } else {
+                if (Array.isArray(args[0])) args = [].concat(_toConsumableArray(args[0]));
+                var channels = args.filter(function (x) {
+                    return x instanceof Function;
+                }).map(function (fn) {
+                    return new Channel(fn);
+                });
+                first = channels[0];
+                last = channels.reduce(function (x, y) {
+                    return x.pipe(y);
+                });
+            }
+            return [first, last];
         }
 
         /*
@@ -1062,7 +1051,7 @@ var Channel = (function () {
                 (function () {
                     var running = true;
                     (function callee$3$0() {
-                        var _loop3, _iteratorNormalCompletion3, _didIteratorError3, _iteratorError3, _iterator3, _step3, _ret9;
+                        var _loop3, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, _ret9;
 
                         return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
                             var _this6 = this;
@@ -1090,13 +1079,13 @@ var Channel = (function () {
                                                         break;
                                                     }
 
-                                                    _iteratorNormalCompletion3 = true;
-                                                    _didIteratorError3 = false;
-                                                    _iteratorError3 = undefined;
+                                                    _iteratorNormalCompletion2 = true;
+                                                    _didIteratorError2 = false;
+                                                    _iteratorError2 = undefined;
                                                     context$5$0.prev = 8;
 
-                                                    for (_iterator3 = _getIterator(parent.pipeline); !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-                                                        channel = _step3.value;
+                                                    for (_iterator2 = _getIterator(parent.pipeline); !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                                                        channel = _step2.value;
 
                                                         channel.close(true);
                                                     }context$5$0.next = 16;
@@ -1105,26 +1094,26 @@ var Channel = (function () {
                                                 case 12:
                                                     context$5$0.prev = 12;
                                                     context$5$0.t0 = context$5$0['catch'](8);
-                                                    _didIteratorError3 = true;
-                                                    _iteratorError3 = context$5$0.t0;
+                                                    _didIteratorError2 = true;
+                                                    _iteratorError2 = context$5$0.t0;
 
                                                 case 16:
                                                     context$5$0.prev = 16;
                                                     context$5$0.prev = 17;
 
-                                                    if (!_iteratorNormalCompletion3 && _iterator3['return']) {
-                                                        _iterator3['return']();
+                                                    if (!_iteratorNormalCompletion2 && _iterator2['return']) {
+                                                        _iterator2['return']();
                                                     }
 
                                                 case 19:
                                                     context$5$0.prev = 19;
 
-                                                    if (!_didIteratorError3) {
+                                                    if (!_didIteratorError2) {
                                                         context$5$0.next = 22;
                                                         break;
                                                     }
 
-                                                    throw _iteratorError3;
+                                                    throw _iteratorError2;
 
                                                 case 22:
                                                     return context$5$0.finish(19);
@@ -1189,19 +1178,78 @@ var Channel = (function () {
         key: 'merge',
         value: function merge() {
             var child = new Channel();
-            var _iteratorNormalCompletion4 = true;
-            var _didIteratorError4 = false;
-            var _iteratorError4 = undefined;
+            var _iteratorNormalCompletion3 = true;
+            var _didIteratorError3 = false;
+            var _iteratorError3 = undefined;
 
             try {
                 for (var _len6 = arguments.length, channels = Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
                     channels[_key6] = arguments[_key6];
                 }
 
-                for (var _iterator4 = _getIterator(channels), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-                    var _parent = _step4.value;
+                for (var _iterator3 = _getIterator(channels), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+                    var _parent = _step3.value;
 
                     _parent.pipe(child);
+                }
+            } catch (err) {
+                _didIteratorError3 = true;
+                _iteratorError3 = err;
+            } finally {
+                try {
+                    if (!_iteratorNormalCompletion3 && _iterator3['return']) {
+                        _iterator3['return']();
+                    }
+                } finally {
+                    if (_didIteratorError3) {
+                        throw _iteratorError3;
+                    }
+                }
+            }
+
+            return child;
+        }
+    }, {
+        key: 'unpipe',
+        value: function unpipe(parent) {
+            var _iteratorNormalCompletion4 = true;
+            var _didIteratorError4 = false;
+            var _iteratorError4 = undefined;
+
+            try {
+                for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
+                    channels[_key7 - 1] = arguments[_key7];
+                }
+
+                for (var _iterator4 = _getIterator(_Array$entries(parent.pipeline)), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+                    var _step4$value = _slicedToArray(_step4.value, 2);
+
+                    var index = _step4$value[0];
+                    var pipe = _step4$value[1];
+                    var _iteratorNormalCompletion5 = true;
+                    var _didIteratorError5 = false;
+                    var _iteratorError5 = undefined;
+
+                    try {
+                        for (var _iterator5 = _getIterator(channels), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+                            var ch2 = _step5.value;
+
+                            if (pipe === ch2) parent.pipeline.splice(index, 1);
+                        }
+                    } catch (err) {
+                        _didIteratorError5 = true;
+                        _iteratorError5 = err;
+                    } finally {
+                        try {
+                            if (!_iteratorNormalCompletion5 && _iterator5['return']) {
+                                _iterator5['return']();
+                            }
+                        } finally {
+                            if (_didIteratorError5) {
+                                throw _iteratorError5;
+                            }
+                        }
+                    }
                 }
             } catch (err) {
                 _didIteratorError4 = true;
@@ -1214,65 +1262,6 @@ var Channel = (function () {
                 } finally {
                     if (_didIteratorError4) {
                         throw _iteratorError4;
-                    }
-                }
-            }
-
-            return child;
-        }
-    }, {
-        key: 'unpipe',
-        value: function unpipe(parent) {
-            var _iteratorNormalCompletion5 = true;
-            var _didIteratorError5 = false;
-            var _iteratorError5 = undefined;
-
-            try {
-                for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
-                    channels[_key7 - 1] = arguments[_key7];
-                }
-
-                for (var _iterator5 = _getIterator(_Array$entries(parent.pipeline)), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-                    var _step5$value = _slicedToArray(_step5.value, 2);
-
-                    var index = _step5$value[0];
-                    var pipe = _step5$value[1];
-                    var _iteratorNormalCompletion6 = true;
-                    var _didIteratorError6 = false;
-                    var _iteratorError6 = undefined;
-
-                    try {
-                        for (var _iterator6 = _getIterator(channels), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-                            var ch2 = _step6.value;
-
-                            if (pipe === ch2) parent.pipeline.splice(index, 1);
-                        }
-                    } catch (err) {
-                        _didIteratorError6 = true;
-                        _iteratorError6 = err;
-                    } finally {
-                        try {
-                            if (!_iteratorNormalCompletion6 && _iterator6['return']) {
-                                _iterator6['return']();
-                            }
-                        } finally {
-                            if (_didIteratorError6) {
-                                throw _iteratorError6;
-                            }
-                        }
-                    }
-                }
-            } catch (err) {
-                _didIteratorError5 = true;
-                _iteratorError5 = err;
-            } finally {
-                try {
-                    if (!_iteratorNormalCompletion5 && _iterator5['return']) {
-                        _iterator5['return']();
-                    }
-                } finally {
-                    if (_didIteratorError5) {
-                        throw _iteratorError5;
                     }
                 }
             }

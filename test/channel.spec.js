@@ -478,9 +478,12 @@ describe('Channel', function() {
             let ch2 = new Channel();
             let ch3 = new Channel();
             ch1.pipe(ch2).pipe(ch3);
-            await ch1.put(1);
-            let take = await ch3.take();
-            assert.equal(take, 1);
+            ch1.put(1);
+            ch1.put(2);
+            let take1 = await ch3.take();
+            let take2 = await ch3.take();
+            assert.equal(take1, 1);
+            assert.equal(take2, 2);
             assert.true(ch1.empty());
             assert.true(ch2.empty());
             assert.true(ch3.empty());
@@ -491,10 +494,21 @@ describe('Channel', function() {
             let ch2 = new Channel();
             let ch3 = new Channel();
             ch1.pipe(ch2, ch3);
-            await ch1.put(1);
-            let [ take2, take3 ] = await Promise.all([ ch2.take(), ch3.take() ]);
-            assert.equal(take2, 1);
-            assert.equal(take3, 1);
+            ch1.put(1);
+            ch1.put(2);
+
+            let take1From2 = await ch2.take();
+            assert.equal(1, take1From2);
+
+            let take1From3 = await ch3.take();
+            assert.equal(1, take1From3);
+
+            let take2From2 = await ch2.take();
+            assert.equal(2, take2From2);
+
+            let take2From3 = await ch3.take();
+            assert.equal(2, take2From3);
+
             assert.true(ch1.empty());
             assert.true(ch2.empty());
             assert.true(ch3.empty());
@@ -518,13 +532,15 @@ describe('Channel', function() {
                 assert.equal(await ch3.take(), { y: i + 2 });
         });
 
-        it('should be able to put values onto any channel', async() => {
+        it('should be able to put values onto any channel in the pipeline', async() => {
             let ch1 = new Channel();
             let ch2 = new Channel();
             let ch3 = new Channel();
             ch1.pipe(ch2).pipe(ch3);
             await ch2.put(2);
             assert.equal(await ch3.take(), 2);
+            ch3.put(3);
+            assert.equal(await ch3.take(), 3);
             assert.true(ch1.empty());
             assert.true(ch2.empty());
             assert.true(ch3.empty());
@@ -664,6 +680,35 @@ describe('Channel', function() {
             assert.equal(ch3.state, STATES.ENDED);
             assert.equal(ch4.state, STATES.ENDED);
         });
+    });
+
+    describe('.pipeline()', () => {
+
+        it('should create a pipeline from an iterable of callbacks', async() => {
+            let [ ch1, ch3 ] = Channel.pipeline(
+                x => x + 2,
+                x => x ** 2,
+                x => x / 2
+            );
+            assert.equal(ch1.pipeline.length, 1); // since ch1 -> ch2 only
+            let ch2 = ch1.pipeline[0];
+            assert.equal(ch2.pipeline.length, 1);
+            assert.equal(ch2.pipeline[0], ch3);
+            ch1.put(1);
+            ch1.put(2);
+            ch1.put(3);
+            ch1.close(true);
+            assert.equal(await ch3.take(), 4.5);
+            assert.equal(await ch3.take(), 8);
+            assert.equal(await ch3.take(), 12.5);
+            await ch1.done();
+            await ch2.done();
+            await ch3.done();
+            assert.equal(ch1.state, STATES.ENDED);
+            assert.equal(ch2.state, STATES.ENDED);
+            assert.equal(ch3.state, STATES.ENDED);
+        });
+
     });
 
     describe('#unpipe()', () => {
@@ -994,7 +1039,7 @@ describe('Channel', function() {
 
     });
 
-    describe('general use', function() { // eslint-disable-line prefer-arrow-callback
+    describe('general use', () => {
 
         it('should not block indefinitely with synchronous produce + consume', async() => {
             let ch = new Channel();

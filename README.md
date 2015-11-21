@@ -55,9 +55,8 @@ npm install async-csp
 
 ## Examples
 
-If you would like to jump straight into examples, they can be found [here](examples/).
-To run any example, make sure the default task has been successfully run once (especially `npm install`), then run `node index.js` from the root folder of the example.
-I would suggest starting with [ping-pong](examples/ping-pong).
+Examples can be found [here](examples/).
+To run any example, make sure the default task has been successfully run once (or at least `npm install`), then run `node index.js` from the root folder of the example.
 
 ## Usage
 
@@ -67,9 +66,9 @@ I would suggest starting with [ping-pong](examples/ping-pong).
 
 A `Channel` is a container which makes use of `Promises` to handle the incoming and outgoing flow of data.
 
-To place a value on a `Channel` you may use `Channel#put()`, and to take a value off of the channel you may use `Channel#take()`.
+To put a value on a `Channel` use `Channel#put()`, and to take a value from the channel use `Channel#take()`.
 
-Note that by default, a put will not resolve until its value is taken off of the channel, and a take will not resolve until a value is made available on the channel.
+By default, the promise returned from `Channel#put()` will not resolve until its value is taken from the channel, and the promise returned from `Channel#take()` will not resolve until a value can be taken from the channel.
 
 ```js
 import Channel from 'async-csp';
@@ -95,10 +94,10 @@ takes(ch);
 ### Buffering
 
 A `Channel` can be created with a buffer for receiving puts.
-Essentially, this means a put can resolve while space remains on the buffer, even if no take is waiting to receive a value.
+Essentially, this means a put can resolve while space is available on the buffer, even if no take is waiting to receive a value.
 As soon as the buffer becomes full, put will begin blocking again until a take clears a space from the buffer.
 
-To create a `Channel` with a buffer size, pass in a `Number` as the first argument to the constructor.
+To create a `Channel` with a buffer, pass in a `Number` as the first argument to the constructor.
 
 ```js
 import Channel, { timeout } from 'async-csp';
@@ -120,14 +119,21 @@ async function takes(ch) {
     console.log(await ch.take()); //=> resolves to 3
 }
 
+// execute the puts right away
 puts(channel);
-await timeout(1000); // this is a helper method which will resolve after the given milliseconds, used to help show the effects of blocking.
+
+// use a helper method to wait for 1 second
+// to help show the effects of blocking
+await timeout(1000);
+
+// after 1 second, start executing takes
 takes(channel);
 ```
 
 ### Non-blocking puts
 
-A common use for a `Channel` requires that data be input from a non async context, or we simply don't want to wait for the put to resolve.
+A common use for a `Channel` requires data to be input from a non async context, or without waiting for the put to resolve.
+
 In this scenario, do not await the result of `Channel#put()`.
 
 ```js
@@ -176,9 +182,11 @@ console.log(await ch.take()); //=> 3
 console.log(await ch.take()); //=> 4
 ```
 
-If a transform should take a single value and expand it into multiple values, then the `push` parameter can be used with the transform callback.
+If a transform needs to expand a single value into multiple values, use the `push` parameter with the transform.
 
-Note that when using this callback style, all values must be sent through `push`. Any value returned from the transform callback will be ignored when more than one parameter is defined.
+Note that when using this callback style, all values must be sent through `push`.
+Any value returned from the transform callback will be ignored
+when the provided transformer has more than one parameter defined.
 
 ```js
 let ch = new Channel((x, push) => {
@@ -197,7 +205,7 @@ console.log(await ch.take()); //=> 4
 
 If the transform needs to work asynchronously, there are a few ways to accomplish this.
 
-The first is to use a standard async callback.
+The first is to use an async callback.
 
 ```js
 let ch = new Channel(async x => {
@@ -212,8 +220,9 @@ console.log(await ch.take()); //=> 1
 console.log(await ch.take()); //=> 2
 ```
 
-The second way to use an asynchronous transform is with an async callback with a parameter length of 2.
-Similar to the non-async callback with a parameter length of 2, any values must be sent through `push`, and returned values will be ignored.
+The second way to use an asynchronous transform is by passing in an async callback with a parameter length of 2.
+Similar to the non-async callback with a parameter length of 2, all values must be sent through `push`,
+and returned values will be ignored.
 
 ```js
 let ch = new Channel(async(x, push) => {
@@ -232,7 +241,8 @@ console.log(await ch.take()); //=> 3
 console.log(await ch.take()); //=> 4
 ```
 
-The final asynchronous transform uses three parameters with the transform callback. To signify that the asynchronous transform has completed, execute the third argument.
+The final way to use an asynchronous transform is with a three-parameter callback.
+To signify that the transform has completed, execute the third argument.
 
 ```js
 let ch = new Channel((x, push, done) => {
@@ -252,35 +262,19 @@ console.log(await ch.take()); //=> 3
 console.log(await ch.take()); //=> 4
 ```
 
-The second is to declare the transform as `async` or to return a `Promise`.
-
-```js
-let ch = new Channel(async(x, push) => {
-    push(x);
-    await timeout(100);
-    push(x + 1);
-});
-
-ch.put(1);
-ch.put(3);
-
-console.log(await ch.take()); //=> 1
-console.log(await ch.take()); //=> 2
-console.log(await ch.take()); //=> 3
-console.log(await ch.take()); //=> 4
-```
-
 One final note: Using a transform does not prevent you from simultaneously using a buffer.
 To use a transform with a buffered `Channel`, pass in the buffer size as the first argument, and the transform as the second.
 
+```js
 let ch = new Channel(2, x => x + 1);
 
-// note that puts will be resolved while we have space on the buffer in this case
+// note that puts will be resolved immediately, since we have space on the buffer
 await ch.put(1);
 await ch.put(3);
 
 console.log(await ch.take()); //=> 2
 console.log(await ch.take()); //=> 4
+```
 
 ### Channel#pipe()
 
@@ -291,7 +285,22 @@ let ch1 = new Channel();
 let ch2 = new Channel();
 let ch3 = new Channel();
 
-ch1.pipe(ch2).pipe(ch3); // ch1 pipes to ch2, ch2 pipes to ch3
+ch1.pipe(ch2).pipe(ch3);
+/*
+    +---+
+    |ch1|
+    +---+
+      |
+      V
+    +---+
+    |ch2|
+    +---+
+      |
+      V
+    +---+
+    |ch3|
+    +---+
+*/
 
 ch1.put(1);
 ch1.put(2);
@@ -302,14 +311,25 @@ console.log(await ch3.take()); //=>  2
 console.log(await ch3.take()); //=>  3
 ```
 
-A `Channel` can be piped to multiple destinations. In this case, all downstream `Channels` will receive every value from upstream.
+A `Channel` can be piped to multiple destinations.
+In this case, downstream `Channels` will receive every value from upstream.
 
 ```js
 let ch1 = new Channel();
 let ch2 = new Channel();
 let ch3 = new Channel();
 
-ch1.pipe(ch2, ch3); // ch1 pipes to both ch2 and ch3
+ch1.pipe(ch2, ch3); // or `ch1.pipe(ch2); ch1.pipe(ch3);`
+/*
+        +---+
+      +-|ch1|-+
+      | +---+ |
+      |       |
+      V       V
+    +---+   +---+
+    |ch2|   |ch3|
+    +---+   +---+
+*/
 
 ch1.put(1);
 ch1.put(2);
@@ -334,7 +354,7 @@ console.log(await ch3.take()); //=>  3
 Also take note that if one downstream `Channel` is blocked from a currently unresolved `Channel#put()` (buffered or non-buffered), then the *entire* pipe will be blocked.
 In the example above, an attempt to take all 3 values from `ch2` before taking any values from `ch3` would have resulted in deadlock.
 
-Finally, any piped `Channel` will also execute an available transform. To set up a pipe of transforms, the following can be done:
+Finally, any piped `Channel` will also execute transforms.
 
 ```js
 let ch1 = new Channel(x => x + 2);
@@ -354,28 +374,30 @@ console.log(await ch3.take()); //=> { x: '5' }
 
 ### Channel.pipeline()
 
-`Channel.pipeline()` is a convenience method for creating piped channels from any number of callbacks.
+`Channel.pipeline()` is a helper method for creating piped channels from any number of callbacks.
 Callbacks can be provided either as separate arguments, or contained in an array as the first argument.
 
+`Channel.pipeline()` will return an array containing the first and the last `Channel` in the pipeline.
+
 ```js
-let [ chFirst, chLast ] = Channel.pipeline(
+let [ ch1, ch3 ] = Channel.pipeline(
     x => x + 2,
     x => x.toString(),
     x => ({ x })
 );
 
-chFirst.put(1);
-chFirst.put(2);
-chFirst.put(3);
+ch1.put(1);
+ch1.put(2);
+ch1.put(3);
 
-console.log(await chLast.take()); //=> { x: '3' }
-console.log(await chLast.take()); //=> { x: '4' }
-console.log(await chLast.take()); //=> { x: '5' }
+console.log(await ch3.take()); //=> { x: '3' }
+console.log(await ch3.take()); //=> { x: '4' }
+console.log(await ch3.take()); //=> { x: '5' }
 ```
 
 ### Channel#unpipe()
 
-If, for whatever reason, you want to take a `Channel` out of an existing pipe, you may use `Channel#unpipe()`.
+If a `Channel` should be taken out of an existing pipe, use `Channel#unpipe()`.
 
 ```js
 let ch1 = new Channel();
@@ -386,7 +408,6 @@ ch1.pipe(ch2).pipe(ch3);
 
 ch1.put(1);
 console.log(await ch3.take()); //=> 1
-
 
 // now take ch2 out of the pipe
 ch1.unpipe(ch2);
@@ -401,12 +422,12 @@ console.log(await ch3.take()); //=> 3
 
 ### Channel#merge()
 
-`Channel.merge()` is a convenience method for piping multiple `Channels` into a single, new `Channel`.
+`Channel.merge()` is a helper method for piping multiple `Channels` into a single, new `Channel`.
 
 ```js
 let ch1 = new Channel();
 let ch2 = new Channel();
-let ch3 = ch1.merge(ch2); // alternately, let ch3 = Channel.merge(ch1, ch2)
+let ch3 = ch1.merge(ch2); // or, `ch3 = Channel.merge(ch1, ch2)`
 
 ch1.put(1);
 ch2.put(2);
@@ -417,9 +438,9 @@ console.log(await ch3.take()); //=> 2
 
 ### Channel#close()
 
-`Channels` have 3 states: open, closed, and ended. An open `Channel` can be written to, a closed `Channel` can no longer be written to, and an ended `Channel` is both closed and empty.
+A `Channel` has 3 states: open, closed, and ended. An open `Channel` can be written to, a closed `Channel` will not accept any new values but may be non-empty, and an ended `Channel` is both closed and empty.
 
-To signify that a `Channel` will no longer have data written, execute `close`. Data can still be taken from the channel, even when closed, but no data can be added after that point.
+To signify that a `Channel` should be done accepting new values, execute `Channel#close()`. Data can still be taken from the channel after that point, but no more values can be added.
 
 ```js
 let ch1 = new Channel();
@@ -464,20 +485,27 @@ ch.put(1);
 ch.put(2);
 ch.close();
 
+let arr = [];
 (async() => {
     await timeout(1000);
-    console.log(await ch.take()); //=> 1
+    arr.push(await ch.take());
     await timeout(1000);
-    console.log(await ch.take()); //=> 2
+    arr.push(await ch.take());
 })();
 
 await ch.done(); // will not resolve until the async IIFE takes both values from the channel
+console.log(arr); //=> [ 1, 2 ]
 ```
 
 ### Channel#tail()
 
-While appending to a `Channel` can technically be accomplished through the use of a shared transform and executing the transform after the `Channel` has been marked as done, sometimes transforms are not being used or the data to be appended is not available at the time the `Channel` has completed.
-In these scenarios, `Channel#tail()` is provided as a method which will provide values to any `Channel#take()` only after the `Channel` is closed and all existing `Channel#put()`s have been resolved.
+While manually appending values to a `Channel` can be accomplished,
+it often becomes significantly more difficult
+when items such as pipes and asynchronous transforms are in play.
+
+For simplicity, `Channel#tail()` is provided as an alternative method for
+providing values to `Channel#take()` only after the `Channel` is closed
+and all existing `Channel#put()`s have been resolved.
 
 ```js
 let ch = new Channel();
@@ -494,9 +522,28 @@ console.log(await ch.take()); //=> 3
 console.log(await ch.take()); //=> 4
 ```
 
+Note that when a `Channel` has a transform, any values provided through `Channel#tail()`
+will also use that transform.
+
+```js
+let ch = new Channel(x => x + 2);
+
+ch.put(1);
+ch.tail(4);
+ch.put(2);
+ch.put(3);
+ch.close();
+
+console.log(await ch.take()); //=> 3
+console.log(await ch.take()); //=> 4
+console.log(await ch.take()); //=> 5
+console.log(await ch.take()); //=> 6
+```
+
 ### Channel#consume()
 
-If you would like to execute a callback as soon as values can be taken from the `Channel`, you may add a consumer by using `Channel#consume()`.
+If you would like to execute a callback as soon as values can be taken from the `Channel`,
+you may add a consumer by using `Channel#consume()`.
 
 ```js
 let ch = new Channel();
@@ -516,7 +563,8 @@ await ch.put(4);
 //=> 4
 ```
 
-`Channel#consume()` can also be handled asynchronously, and will not attempt to queue up another `Channel#take()` until the consumer callback has completed running.
+`Channel#consume()` can also be handled asynchronously, and will not attempt to queue up another `Channel#take()`
+until the consumer callback has completed running.
 
 ```js
 let ch = new Channel();
@@ -541,7 +589,8 @@ await ch.put(4);
 
 ### Channel#produce()
 
-Similar to `Channel#consume()`, `Channel#produce()` will put returned values onto the `Channel` as soon as space becomes available.
+Similar to `Channel#consume()`, `Channel#produce()` will put returned values
+onto the `Channel` as soon as space becomes available.
 
 ```js
 let ch = new Channel();
@@ -572,7 +621,8 @@ console.log(await ch.take()); //=> 4, after 4 seconds
 
 ### Channel.from()
 
-If you have an iterable item which you would like to convert into a `Channel`, and do not want to loop and execute `Channel#put()`, use `Channel.from()` to construct the `Channel` for you.
+If you have an iterable item which you would like to convert into a `Channel`,
+use `Channel.from()` to construct a `Channel` from that iterable.
 
 ```js
 let arr = [ 1, 2, 3 ];
@@ -583,8 +633,12 @@ console.log(await ch.take()); //=> 2
 console.log(await ch.take()); //=> 3
 ```
 
-Note that in this case, a buffer is created with the size of the iterable, all values are placed directly onto the buffer, and the `Channel` is marked as closed, which will include any attached downstream pipes.
-If you would like to keep the channel or any downstream pipes open to continue receiving puts, pass in a `true` as the second argument.
+Note that in this case, a buffer is created with the size of the iterable,
+all values are placed directly onto the buffer, and the `Channel` is marked as closed,
+which will include any attached downstream pipes.
+
+If the channel or any downstream pipes should remain open to continue receiving puts,
+pass in a `true` as the second argument.
 
 ```js
 let arr = [ 1, 2, 3 ];
@@ -597,3 +651,7 @@ console.log(await ch.take()); //=> 2
 console.log(await ch.take()); //=> 3
 console.log(await ch.take()); //=> 4
 ```
+
+## License
+
+All code released under the [MIT](https://github.com/dvlsg/async-csp/blob/master/LICENSE) license.

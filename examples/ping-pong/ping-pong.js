@@ -1,40 +1,35 @@
-/* eslint-disable no-constant-condition */
+import Channel, { timeout } from 'async-csp';
 
-"use strict";
-
-import Channel, { timeout } from '../../dist/channel.js';
-let log = console.log.bind(console);
-
-class Ball {
-    constructor(hits: Number = 0) {
-        this.hits = hits;
-    }
-}
-
-async function player(name: String, table: Channel) {
+async function player(name, table) {
     while (true) {
         let ball = await table.take();
-        if (ball === Channel.DONE)
+        if (ball === Channel.DONE) {
+            console.log(`${name}: table's gone!`);
             break;
+        }
         ball.hits++;
-        log(`${name}! Hits: ${ball.hits}`);
+        console.log(`${name}! Hits: ${ball.hits}`);
         await timeout(100);
         await table.put(ball);
     }
 }
 
 export async function run() {
-    log('Opening ping-pong channel!');
+    console.log('Opening ping-pong channel!');
     let table = new Channel();
+
     player('ping', table);
     player('pong', table);
-    log('Serving ball...');
-    let ball = new Ball();
+
+    console.log('Serving ball...');
+    let ball = {hits: 0};
     await table.put(ball);
     await timeout(1000);
-    log('Closing ping-pong channel...');
+
+    console.log('Closing ping-pong channel...');
     table.close();
+
     await table.done();
-    log('Channel is fully closed!');
-    log(`Ball was hit ${ball.hits} times!`);
+    console.log('Channel is fully closed!');
+    console.log(`Ball was hit ${ball.hits} times!`);
 }

@@ -1,39 +1,96 @@
 # async-csp
-Communicating sequential processes designed to be used with async/await.
+[Communicating sequential processes](https://wikipedia.org/wiki/Communicating_sequential_processes) for use with ES2016's async/await syntax.
+
+Here's [GoLang's ping/pong example](https://talks.golang.org/2013/advconc.slide#6) in `async-csp` flavor:
 
 ```js
-import Channel, { timeout } from 'async-csp';
+import Channel from 'async-csp'
 
-async function puts(channel) {
-    for (let i = 0; i < 5; i++) {
-        await timeout(1000);
-        await channel.put(i);
+async function sleep(duration) {
+    return new Promise(resolve => setTimeout(resolve, duration))
+}
+
+async function player(name, table) {
+    while (true) {
+        let ball = await table.take();
+        if (ball === Channel.DONE) {
+            console.log(`${name}: table's gone!`);
+            break;
+        }
+        ball.hits++;
+        console.log(`${name}! Hits: ${ball.hits}`);
+        await sleep(100);
+        await table.put(ball);
     }
 }
 
-async function takes(channel) {
-    for (let i = 0; i < 5; i++) {
-        let val = await channel.take();
-        console.log('val:', val);
-    }
+async function pingPong() {
+    console.log('Opening ping-pong channel!');
+    let table = new Channel();
+
+    player('ping', table);
+    player('pong', table);
+
+    console.log('Serving ball...');
+    let ball = {hits: 0};
+    await table.put(ball);
+    await sleep(1000);
+
+    console.log('Closing ping-pong channel...');
+    table.close();
+
+    await table.done();
+    console.log('Channel is fully closed!');
+    console.log(`Ball was hit ${ball.hits} times!`);
 }
 
-// create a new csp channel
-let channel = new Channel();
-
-// places a value onto the channel once every second
-puts(channel);
-
-// logs values from the channel as soon as they are available
-takes(channel);
-
-// console logs, once a second
-//=> 0
-//=> 1
-//=> 2
-//=> 3
-//=> 4
+pingPong()
 ```
+
+Sometimes the output of this example is
+
+```
+Opening ping-pong channel!
+Serving ball...
+ping! Hits: 1
+pong! Hits: 2
+ping! Hits: 3
+pong! Hits: 4
+ping! Hits: 5
+pong! Hits: 6
+ping! Hits: 7
+pong! Hits: 8
+ping! Hits: 9
+Closing ping-pong channel...
+pong: table's gone!
+Channel is fully closed!
+Ball was hit 9 times!
+ping: table's gone!
+```
+
+and sometimes it's
+
+```
+Opening ping-pong channel!
+Serving ball...
+ping! Hits: 1
+pong! Hits: 2
+ping! Hits: 3
+pong! Hits: 4
+ping! Hits: 5
+pong! Hits: 6
+ping! Hits: 7
+pong! Hits: 8
+ping! Hits: 9
+pong! Hits: 10
+Closing ping-pong channel...
+ping: table's gone!
+Channel is fully closed!
+Ball was hit 10 times!
+pong: table's gone!
+```
+
+Sometimes the ball is hit 9 times, and sometimes 10! This is due to the nature of asynchronicity which is nicely depicted in this example.
 
 ## Installation
 

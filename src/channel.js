@@ -69,7 +69,7 @@ async function flush(ch: Channel) {
         takes = [];
     while (take = ch.takes.shift()) // eslint-disable-line no-cond-assign
         takes.push(take(ACTIONS.DONE));
-    await* takes;
+    await Promise.all(takes);
     if (!ch[IS_CONSUMING])
         finish(ch);
     ch[IS_FLUSHING] = false;
@@ -609,7 +609,7 @@ export default class Channel {
                         }
                         break;
                     }
-                    await* parent.pipeline.map(x => x.put(val)); // eslint-disable-line no-loop-func
+                    await Promise.all(parent.pipeline.map(x => x.put(val))); // eslint-disable-line no-loop-func
                 }
             })();
             parent[ACTIONS.CANCEL] = () => {

@@ -43,6 +43,5 @@
     "zana-assert": "^0.1.4"
   },
   "dependencies": {
-    "babel-runtime": "^5.7.0"
   }
 }

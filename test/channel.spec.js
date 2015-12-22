@@ -3,7 +3,6 @@
 import Channel, { STATES, timeout } from '../src/channel.js';
 import { List, FixedQueue } from '../src/data-structures.js';
 import assert from 'zana-assert';
-import wrapMocha from './util/wrap-mocha.js'; // eslint-disable-line no-unused-vars
 let log = ::console.log; // eslint-disable-line
 
 describe('Channel', function() {

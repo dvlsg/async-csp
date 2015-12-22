@@ -6,7 +6,7 @@ var babel    = require('gulp-babel');
 var del      = require('del');
 var sequence = require('run-sequence');
 
-require('babel-core/register'); // for mocha tests
+require('babel-register'); // for mocha tests
 
 var srcDir = './src/';
 var srcGlob = srcDir + '*.js';

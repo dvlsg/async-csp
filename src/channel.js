@@ -36,7 +36,7 @@ const IS_SLIDING = Symbol('channel_sliding');
     setTimeout is used to ensure that the error is thrown
     from a location that will not be eaten by an async throw.
 */
-function expose(e: Error) {
+function expose(e) {
     setTimeout(() => {
         throw e;
     });
@@ -46,7 +46,7 @@ function expose(e: Error) {
     Marks a channel as ended, and signals any promises
     which are waiting for the end of the channel.
 */
-function finish(ch: Channel) {
+function finish(ch) {
     ch[STATE] = STATES.ENDED;
     let waiting = null;
     while (waiting = ch.waiting.shift()) // eslint-disable-line no-cond-assign
@@ -57,7 +57,7 @@ function finish(ch: Channel) {
     Flushes out any remaining takes from the channel
     by sending them the value of `ACTIONS.DONE`.
 */
-async function flush(ch: Channel) {
+async function flush(ch) {
     if (!ch.empty())
         // this error is never expected to be thrown
         // just a sanity check during development
@@ -75,7 +75,7 @@ async function flush(ch: Channel) {
     ch[IS_FLUSHING] = false;
 }
 
-function wrap(val: any, transform: Function, resolve: Function) {
+function wrap(val, transform, resolve) {
     let wrapped = null;
     if (transform instanceof Function) {
         if (transform.length === 1) {
@@ -124,7 +124,7 @@ function wrap(val: any, transform: Function, resolve: Function) {
     };
 }
 
-async function _bufferedSlide(ch: Channel) {
+async function _bufferedSlide(ch) {
     while (!ch.buf.empty() && !ch.takes.empty()) {
         let buf = ch.buf.shift();
         let val = null;
@@ -190,7 +190,7 @@ async function _bufferedSlide(ch: Channel) {
     }
 }
 
-async function _slide(ch: Channel) {
+async function _slide(ch) {
     while (!ch.takes.empty() && !ch.puts.empty()) {
         let put = ch.puts.shift();
         let val = await put.wrapped();
@@ -227,13 +227,13 @@ async function _slide(ch: Channel) {
     }
 }
 
-function canSlide(ch: Channel) {
+function canSlide(ch) {
     return ch.buf
         ? !ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty()
         : !ch.takes.empty() && !ch.puts.empty();
 }
 
-async function slide(ch: Channel) {
+async function slide(ch) {
     if (ch[IS_SLIDING])
         return;
     ch[IS_SLIDING] = true;
@@ -263,23 +263,26 @@ export function timeout(delay = 0) {
 export default class Channel {
 
     // A List containing any puts which could not be placed directly onto the buffer
-    puts: List;
+    puts = new List();
+
+    // A List containing any puts to be appended to the end of the channel
+    tails = new List();
 
     // A List containing any takes waiting for values to be provided
-    takes: List;
+    takes = new List();
 
     // A FixedQueue containing values ready to be taken.
-    buf: FixedQueue;
+    buf = null;
 
     // An optional function to used to transform values passing through the channel.
-    transform: Function;
+    transform = null;
 
     // An optional pipeline of channels, to be used to pipe values
     // from one channel to multiple others.
-    pipeline: Array<Channel>;
+    pipeline = [];
 
     // An optional array of promises, to be resolved when the channel is marked as finished.
-    waiting: Array<Promise>;
+    waiting = [];
 
     /*
         Default constructor for a Channel.
@@ -293,7 +296,7 @@ export default class Channel {
             new Channel(8)             -> Buffered channel, no transform
             new Channel(8, x => x * 2) -> Buffered channel, with transform
     */
-    constructor(... argv) {
+    constructor(...argv) {
         let size = null;
         let transform = null;
         if (typeof argv[0] === 'function')
@@ -303,13 +306,8 @@ export default class Channel {
             if (argv[1] && typeof argv[1] === 'function')
                 transform = argv[1];
         }
-        this.puts      = new List();
-        this.tails     = new List();
-        this.takes     = new List();
         this.transform = transform;
-        this.pipeline  = [];
-        this.waiting   = [];
-        this[STATE]    = STATES.OPEN;
+        this[STATE] = STATES.OPEN;
 
         if (size) {
             this.buf = new FixedQueue(size);
@@ -372,7 +370,7 @@ export default class Channel {
         Accepts an optional boolean `all`, to signify
         whether or not to close the entire pipeline.
     */
-    static close(ch: Channel, all: Boolean = false) {
+    static close(ch, all = false) {
         ch.state = STATES.CLOSED;
         if (all)
             ch[SHOULD_CLOSE] = true;
@@ -382,7 +380,7 @@ export default class Channel {
     /*
         Calls Channel.close for `this`, `all`.
     */
-    close(all: Boolean = false) {
+    close(all = false) {
         return Channel.close(this, all);
     }
 
@@ -390,7 +388,7 @@ export default class Channel {
         Determines if a channel
         has any values left for `take` to use.
     */
-    static empty(ch: Channel) {
+    static empty(ch) {
         if (ch.buf)
             return ch.buf.empty() && ch.puts.empty();
         return ch.puts.empty();
@@ -409,7 +407,7 @@ export default class Channel {
         If the buffer is full, the promise will be pushed
         onto Channel.puts to be resolved when buffer space is available.
     */
-    static put(ch: Channel, val: any) {
+    static put(ch, val) {
         return new Promise((resolve) => {
             if (ch.state !== STATES.OPEN)
                 return resolve(ACTIONS.DONE);
@@ -422,7 +420,7 @@ export default class Channel {
     /*
         Returns Channel.put for `this`, `val`.
     */
-    put(val: any) {
+    put(val) {
         return Channel.put(this, val);
     }
 
@@ -432,7 +430,7 @@ export default class Channel {
         If no value is provided, the promise will be pushed
         onto Channel.takes to be resolved when a value is available.
     */
-    static take(ch: Channel) {
+    static take(ch) {
         return new Promise((resolve) => {
             if (ch.state === STATES.ENDED)
                 return resolve(ACTIONS.DONE);
@@ -448,7 +446,7 @@ export default class Channel {
         return Channel.take(this);
     }
 
-    static tail(ch: Channel, val: any) {
+    static tail(ch, val) {
         return new Promise((resolve) => {
             if (ch.state !== STATES.OPEN)
                 return resolve(ACTIONS.DONE);
@@ -461,7 +459,7 @@ export default class Channel {
     /*
         Returns Channel.tail for `this`.
     */
-    tail(val: any) {
+    tail(val) {
         return Channel.tail(this, val);
     }
 
@@ -469,10 +467,7 @@ export default class Channel {
         Helper method for putting values onto a channel
         from a provided producer whenever there is space.
     */
-    static async produce(
-          ch       : Channel
-        , producer : Function
-    ): Function {
+    static async produce(ch, producer) {
         let spin = true;
         (async() => {
             try {
@@ -499,7 +494,7 @@ export default class Channel {
     /*
         Calls Channel.produce for `this`, `producer`.
     */
-    produce(producer: Function) {
+    produce(producer) {
         return Channel.produce(this, producer);
     }
 
@@ -507,10 +502,7 @@ export default class Channel {
         Helper method for executing a provided consumer
         each time a channel value is available.
     */
-    static async consume(
-          ch       : Channel
-        , consumer : Function = () => {} // noop default
-    ): Function {
+    static async consume(ch, consumer = () => {}) {
         ch[IS_CONSUMING] = true;
         (async() => {
             let taking = Channel.take(ch);
@@ -533,7 +525,7 @@ export default class Channel {
     /*
         Calls Channel.consume for `this`, `consumer`.
     */
-    consume(consumer: Function = () => {}) {
+    consume(consumer = () => {}) {
         return Channel.consume(this, consumer);
     }
 
@@ -541,7 +533,7 @@ export default class Channel {
         Registers a promise to be resolved
         when the channel has fully ended.
     */
-    static done(ch: Channel) {
+    static done(ch) {
         return new Promise((resolve) => {
             if (ch.state === STATES.ENDED)
                 return resolve();
@@ -595,7 +587,7 @@ export default class Channel {
          do NOT bubble up to the user yet in nodejs.
          will be fixed in the future, supposedly).
     */
-    static pipe(parent: Channel, ...channels: Array<Channel>) {
+    static pipe(parent, ...channels) {
         parent.pipeline.push(...channels);
         if (!parent[ACTIONS.CANCEL]) {
             let running = true;
@@ -622,14 +614,14 @@ export default class Channel {
     /*
         Returns Channel.pipe for `this`, `...channels`.
     */
-    pipe(...channels: Array<Channel>) {
+    pipe(...channels) {
         return Channel.pipe(this, ...channels);
     }
 
     /*
         Pipes all provided channels into a new, single destination.
     */
-    static merge(...channels: Array<Channel>) {
+    static merge(...channels) {
         let child = new Channel();
         for (let parent of channels)
             parent.pipe(child);
@@ -639,11 +631,11 @@ export default class Channel {
     /*
         Returns Channel.merge for `this`, `...channels`.
     */
-    merge(...channels: Array<Channel>) {
+    merge(...channels) {
         return Channel.merge(this, ...channels);
     }
 
-    static unpipe(parent: Channel, ...channels: Array<Channel>) {
+    static unpipe(parent, ...channels) {
         for (let [ index, pipe ] of Array.entries(parent.pipeline)) {
             for (let ch2 of channels) {
                 if (pipe === ch2)
@@ -655,7 +647,7 @@ export default class Channel {
         return parent;
     }
 
-    unpipe(...channels: Array<Channel>) {
+    unpipe(...channels) {
         return Channel.unpipe(this, ...channels);
     }
 }

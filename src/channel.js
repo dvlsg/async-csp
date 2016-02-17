@@ -177,11 +177,6 @@ async function _bufferedSlide(ch: Channel) {
                 take(val);
             }
         }
-        if (!ch.puts.empty() && !ch.buf.full()) {
-            let put = ch.puts.shift();
-            ch.buf.push(put);
-            put.resolve();
-        }
     }
     while (!ch.puts.empty() && !ch.buf.full()) {
         let put = ch.puts.shift();

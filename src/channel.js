@@ -124,6 +124,18 @@ function wrap(val: any, transform: Function, resolve: Function) {
     };
 }
 
+function canSlidePuts(ch: Channel) {
+    return !ch.puts.empty() && (ch.buf ? !ch.buf.full() : !ch.takes.empty());
+}
+
+function canSlideTakes(ch: Channel) {
+    return !ch.takes.empty() && (ch.buf ? !ch.buf.empty() : !ch.puts.empty());
+}
+
+function canSlide(ch: Channel) {
+    return canSlideTakes(ch) || canSlidePuts(ch);
+}
+
 async function _bufferedSlide(ch: Channel) {
     while (!ch.buf.empty() && !ch.takes.empty()) {
         let buf = ch.buf.shift();
@@ -220,18 +232,6 @@ async function _slide(ch: Channel) {
             put.resolve();
         }
     }
-}
-
-function canSlide(ch: Channel) {
-    return canSlideTakes(ch) || canSlidePuts(ch);
-}
-
-function canSlidePuts(ch: Channel) {
-    return !ch.puts.empty() && (ch.buf ? !ch.buf.full() : !ch.takes.empty());
-}
-
-function canSlideTakes(ch: Channel) {
-    return !ch.takes.empty() && (ch.buf ? !ch.buf.empty() : !ch.puts.empty());
 }
 
 async function slide(ch: Channel) {

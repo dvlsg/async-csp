@@ -1,31 +1,58 @@
-'use strict';
+"use strict";
 
-var _createClass = require('babel-runtime/helpers/create-class')['default'];
+var _context;
 
-var _classCallCheck = require('babel-runtime/helpers/class-call-check')['default'];
-
-var _toConsumableArray = require('babel-runtime/helpers/to-consumable-array')['default'];
-
-var _slicedToArray = require('babel-runtime/helpers/sliced-to-array')['default'];
-
-var _Symbol = require('babel-runtime/core-js/symbol')['default'];
-
-var _regeneratorRuntime = require('babel-runtime/regenerator')['default'];
-
-var _Promise = require('babel-runtime/core-js/promise')['default'];
-
-var _getIterator = require('babel-runtime/core-js/get-iterator')['default'];
-
-var _Array$entries = require('babel-runtime/core-js/array/entries')['default'];
-
-Object.defineProperty(exports, '__esModule', {
+Object.defineProperty(exports, "__esModule", {
     value: true
 });
+exports.ACTIONS = exports.STATES = undefined;
 exports.timeout = timeout;
 
-var _dataStructuresJs = require('./data-structures.js');
+var _slicedToArray2 = require('babel-runtime/helpers/slicedToArray');
 
-var log = console.log.bind(console); // eslint-disable-line no-unused-vars
+var _slicedToArray3 = _interopRequireDefault(_slicedToArray2);
+
+var _entries = require('babel-runtime/core-js/array/entries');
+
+var _entries2 = _interopRequireDefault(_entries);
+
+var _getIterator2 = require('babel-runtime/core-js/get-iterator');
+
+var _getIterator3 = _interopRequireDefault(_getIterator2);
+
+var _classCallCheck2 = require('babel-runtime/helpers/classCallCheck');
+
+var _classCallCheck3 = _interopRequireDefault(_classCallCheck2);
+
+var _createClass2 = require('babel-runtime/helpers/createClass');
+
+var _createClass3 = _interopRequireDefault(_createClass2);
+
+var _toConsumableArray2 = require('babel-runtime/helpers/toConsumableArray');
+
+var _toConsumableArray3 = _interopRequireDefault(_toConsumableArray2);
+
+var _regenerator = require('babel-runtime/regenerator');
+
+var _regenerator2 = _interopRequireDefault(_regenerator);
+
+var _promise = require('babel-runtime/core-js/promise');
+
+var _promise2 = _interopRequireDefault(_promise);
+
+var _asyncToGenerator2 = require('babel-runtime/helpers/asyncToGenerator');
+
+var _asyncToGenerator3 = _interopRequireDefault(_asyncToGenerator2);
+
+var _symbol = require('babel-runtime/core-js/symbol');
+
+var _symbol2 = _interopRequireDefault(_symbol);
+
+var _dataStructures = require('./data-structures.js');
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var log = (_context = console).log.bind(_context); // eslint-disable-line no-unused-vars
 
 /*
     Three possible states:
@@ -34,26 +61,24 @@ var log = console.log.bind(console); // eslint-disable-line no-unused-vars
     CLOSED : The Channel can no longer be written to, but still has values to be taken.
     ENDED  : The Channel is closed, and no longer has values to be taken.
 */
-var STATES = {
-    OPEN: _Symbol('channel_open'),
-    CLOSED: _Symbol('channel_closed'),
-    ENDED: _Symbol('channel_ended')
+var STATES = exports.STATES = {
+    OPEN: (0, _symbol2.default)('channel_open'),
+    CLOSED: (0, _symbol2.default)('channel_closed'),
+    ENDED: (0, _symbol2.default)('channel_ended')
 };
 
-exports.STATES = STATES;
-var ACTIONS = {
+var ACTIONS = exports.ACTIONS = {
     // channel has just been closed, and has no more values to take
-    DONE: _Symbol('channel_done'),
-    CANCEL: _Symbol('channel_cancel')
+    DONE: (0, _symbol2.default)('channel_done'),
+    CANCEL: (0, _symbol2.default)('channel_cancel')
 };
 
-exports.ACTIONS = ACTIONS;
-var SLIDER = _Symbol('channel_slider');
-var STATE = _Symbol('channel_state');
-var SHOULD_CLOSE = _Symbol('channel_should_close');
-var IS_CONSUMING = _Symbol('channel_consuming');
-var IS_FLUSHING = _Symbol('channel_flushing');
-var IS_SLIDING = _Symbol('channel_sliding');
+var SLIDER = (0, _symbol2.default)('channel_slider');
+var STATE = (0, _symbol2.default)('channel_state');
+var SHOULD_CLOSE = (0, _symbol2.default)('channel_should_close');
+var IS_CONSUMING = (0, _symbol2.default)('channel_consuming');
+var IS_FLUSHING = (0, _symbol2.default)('channel_flushing');
+var IS_SLIDING = (0, _symbol2.default)('channel_sliding');
 
 /*
     Error expose method to assist with ensuring
@@ -75,53 +100,64 @@ function expose(e) {
 function finish(ch) {
     ch[STATE] = STATES.ENDED;
     var waiting = null;
-    while (waiting = ch.waiting.shift()) // eslint-disable-line no-cond-assign
-    waiting();
+    while (waiting = ch.waiting.shift()) {
+        // eslint-disable-line no-cond-assign
+        waiting();
+    }
 }
 
 /*
     Flushes out any remaining takes from the channel
     by sending them the value of `ACTIONS.DONE`.
 */
-function flush(ch) {
-    var take, takes;
-    return _regeneratorRuntime.async(function flush$(context$1$0) {
-        while (1) switch (context$1$0.prev = context$1$0.next) {
-            case 0:
-                if (ch.empty()) {
-                    context$1$0.next = 2;
-                    break;
+
+var flush = (function () {
+    var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee(ch) {
+        var take, takes;
+        return _regenerator2.default.wrap(function _callee$(_context2) {
+            while (1) {
+                switch (_context2.prev = _context2.next) {
+                    case 0:
+                        if (ch.empty()) {
+                            _context2.next = 2;
+                            break;
+                        }
+
+                        throw new Error('Attempted to execute flush(Channel) on a non-empty channel!');
+
+                    case 2:
+                        if (!ch[IS_FLUSHING]) {
+                            _context2.next = 4;
+                            break;
+                        }
+
+                        return _context2.abrupt('return');
+
+                    case 4:
+                        ch[IS_FLUSHING] = true;
+                        take = null, takes = [];
+
+                        while (take = ch.takes.shift()) {
+                            // eslint-disable-line no-cond-assign
+                            takes.push(take(ACTIONS.DONE));
+                        }_context2.next = 9;
+                        return _promise2.default.all(takes);
+
+                    case 9:
+                        if (!ch[IS_CONSUMING]) finish(ch);
+                        ch[IS_FLUSHING] = false;
+
+                    case 11:
+                    case 'end':
+                        return _context2.stop();
                 }
-
-                throw new Error('Attempted to execute flush(Channel) on a non-empty channel!');
-
-            case 2:
-                if (!ch[IS_FLUSHING]) {
-                    context$1$0.next = 4;
-                    break;
-                }
-
-                return context$1$0.abrupt('return');
-
-            case 4:
-                ch[IS_FLUSHING] = true;
-                take = null, takes = [];
-
-                while (take = ch.takes.shift()) // eslint-disable-line no-cond-assign
-                takes.push(take(ACTIONS.DONE));
-                context$1$0.next = 9;
-                return _regeneratorRuntime.awrap(_Promise.all(takes));
-
-            case 9:
-                if (!ch[IS_CONSUMING]) finish(ch);
-                ch[IS_FLUSHING] = false;
-
-            case 11:
-            case 'end':
-                return context$1$0.stop();
-        }
-    }, null, this);
-}
+            }
+        }, _callee, this);
+    }));
+    return function flush(_x) {
+        return ref.apply(this, arguments);
+    };
+})();
 
 function wrap(val, transform, resolve) {
     var _this = this;
@@ -129,59 +165,63 @@ function wrap(val, transform, resolve) {
     var wrapped = null;
     if (transform instanceof Function) {
         if (transform.length === 1) {
-            wrapped = function callee$1$0() {
+            wrapped = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee2() {
                 var transformed, actual;
-                return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
-                    while (1) switch (context$2$0.prev = context$2$0.next) {
-                        case 0:
-                            transformed = transform(val);
+                return _regenerator2.default.wrap(function _callee2$(_context3) {
+                    while (1) {
+                        switch (_context3.prev = _context3.next) {
+                            case 0:
+                                transformed = transform(val);
 
-                            if (!(transformed instanceof _Promise)) {
-                                context$2$0.next = 6;
-                                break;
-                            }
+                                if (!(transformed instanceof _promise2.default)) {
+                                    _context3.next = 6;
+                                    break;
+                                }
 
-                            context$2$0.next = 4;
-                            return _regeneratorRuntime.awrap(transformed);
+                                _context3.next = 4;
+                                return transformed;
 
-                        case 4:
-                            actual = context$2$0.sent;
-                            return context$2$0.abrupt('return', actual);
+                            case 4:
+                                actual = _context3.sent;
+                                return _context3.abrupt('return', actual);
 
-                        case 6:
-                            return context$2$0.abrupt('return', transformed);
+                            case 6:
+                                return _context3.abrupt('return', transformed);
 
-                        case 7:
-                        case 'end':
-                            return context$2$0.stop();
+                            case 7:
+                            case 'end':
+                                return _context3.stop();
+                        }
                     }
-                }, null, _this);
-            };
+                }, _callee2, _this);
+            }));
         } else {
             (function () {
-                var accepted = new _dataStructuresJs.List();
+                var accepted = new _dataStructures.List();
                 if (transform.length === 2) {
-                    wrapped = function callee$2$0() {
-                        return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
-                            while (1) switch (context$3$0.prev = context$3$0.next) {
-                                case 0:
-                                    context$3$0.next = 2;
-                                    return _regeneratorRuntime.awrap(transform(val, function (acc) {
-                                        if (typeof acc !== 'undefined') accepted.push(acc);
-                                    }));
+                    wrapped = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee3() {
+                        return _regenerator2.default.wrap(function _callee3$(_context4) {
+                            while (1) {
+                                switch (_context4.prev = _context4.next) {
+                                    case 0:
+                                        _context4.next = 2;
+                                        return transform(val, function (acc) {
+                                            if (typeof acc !== 'undefined') accepted.push(acc);
+                                        });
 
-                                case 2:
-                                    return context$3$0.abrupt('return', accepted);
+                                    case 2:
+                                        return _context4.abrupt('return', accepted);
 
-                                case 3:
-                                case 'end':
-                                    return context$3$0.stop();
+                                    case 3:
+                                    case 'end':
+                                        return _context4.stop();
+                                }
                             }
-                        }, null, _this);
-                    };
+                        }, _callee3, _this);
+                    }));
                 } else /* transform.length === 3 */{
                         wrapped = function () {
-                            return new _Promise(function (res) {
+                            return new _promise2.default(function (res) {
                                 transform(val, function (acc) {
                                     if (typeof acc !== 'undefined') accepted.push(acc);
                                 }, function () {
@@ -193,18 +233,20 @@ function wrap(val, transform, resolve) {
             })();
         }
     } else {
-        wrapped = function callee$1$0() {
-            return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
-                while (1) switch (context$2$0.prev = context$2$0.next) {
-                    case 0:
-                        return context$2$0.abrupt('return', val);
+        wrapped = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee4() {
+            return _regenerator2.default.wrap(function _callee4$(_context5) {
+                while (1) {
+                    switch (_context5.prev = _context5.next) {
+                        case 0:
+                            return _context5.abrupt('return', val);
 
-                    case 1:
-                    case 'end':
-                        return context$2$0.stop();
+                        case 1:
+                        case 'end':
+                            return _context5.stop();
+                    }
                 }
-            }, null, _this);
-        };
+            }, _callee4, _this);
+        }));
     }
     return {
         wrapped: wrapped,
@@ -214,290 +256,314 @@ function wrap(val, transform, resolve) {
     };
 }
 
-function _bufferedSlide(ch) {
-    var _loop, put;
-
-    return _regeneratorRuntime.async(function _bufferedSlide$(context$1$0) {
+var _bufferedSlide = (function () {
+    var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee5(ch) {
         var _this2 = this;
 
-        while (1) switch (context$1$0.prev = context$1$0.next) {
-            case 0:
-                _loop = function callee$1$0() {
-                    var buf, val, take, put;
-                    return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
-                        while (1) switch (context$2$0.prev = context$2$0.next) {
-                            case 0:
-                                buf = ch.buf.shift();
-                                val = null;
+        var _loop, put;
 
-                                if (!(buf && buf.wrapped)) {
-                                    context$2$0.next = 8;
-                                    break;
-                                }
+        return _regenerator2.default.wrap(function _callee5$(_context7) {
+            while (1) {
+                switch (_context7.prev = _context7.next) {
+                    case 0:
+                        _loop = _regenerator2.default.mark(function _loop() {
+                            var buf, val, take, put;
+                            return _regenerator2.default.wrap(function _loop$(_context6) {
+                                while (1) {
+                                    switch (_context6.prev = _context6.next) {
+                                        case 0:
+                                            buf = ch.buf.shift();
+                                            val = null;
 
-                                context$2$0.next = 5;
-                                return _regeneratorRuntime.awrap(buf.wrapped());
+                                            if (!(buf && buf.wrapped)) {
+                                                _context6.next = 8;
+                                                break;
+                                            }
 
-                            case 5:
-                                val = context$2$0.sent;
-                                context$2$0.next = 9;
-                                break;
+                                            _context6.next = 5;
+                                            return buf.wrapped();
 
-                            case 8:
-                                val = buf;
+                                        case 5:
+                                            val = _context6.sent;
+                                            _context6.next = 9;
+                                            break;
 
-                            case 9:
-                                // this is a special case caused by `from`. can we get rid of the need for this?
-                                if (typeof val !== 'undefined') {
-                                    if (val instanceof _dataStructuresJs.List) {
-                                        (function () {
-                                            // need a way to distinguish this as a "special" array return
-                                            var accepted = [].concat(_toConsumableArray(val));
-                                            if (accepted.length === 0) buf.resolve();else if (accepted.length === 1) {
-                                                buf.resolve();
-                                                var take = ch.takes.shift();
-                                                take(accepted[0]);
-                                            } else /* accepted.length > 1 */{
+                                        case 8:
+                                            val = buf;
+
+                                        case 9:
+                                            // this is a special case caused by `from`. can we get rid of the need for this?
+                                            if (typeof val !== 'undefined') {
+                                                if (val instanceof _dataStructures.List) {
                                                     (function () {
-                                                        var _ch$buf;
+                                                        // need a way to distinguish this as a "special" array return
+                                                        var accepted = [].concat((0, _toConsumableArray3.default)(val));
+                                                        if (accepted.length === 0) buf.resolve();else if (accepted.length === 1) {
+                                                            buf.resolve();
+                                                            var take = ch.takes.shift();
+                                                            take(accepted[0]);
+                                                        } else /* accepted.length > 1 */{
+                                                                (function () {
+                                                                    var _ch$buf;
 
-                                                        var count = 0;
-                                                        var counter = function counter() {
-                                                            count++;
-                                                            if (count === accepted.length) buf.resolve();
-                                                        };
-                                                        var wrappers = accepted.map(function (acc) {
-                                                            return wrap(acc, function (x) {
-                                                                return x;
-                                                            }, counter);
-                                                        });
-                                                        // when we use counter as the resolve, it makes us need
-                                                        // to call buf.resolve(), whereas we wouldn't normally,
-                                                        // since resolve() should have been called when moving
-                                                        // from put -> buf.
+                                                                    var count = 0;
+                                                                    var counter = function counter() {
+                                                                        count++;
+                                                                        if (count === accepted.length) buf.resolve();
+                                                                    };
+                                                                    var wrappers = accepted.map(function (acc) {
+                                                                        return wrap(acc, function (x) {
+                                                                            return x;
+                                                                        }, counter);
+                                                                    });
+                                                                    // when we use counter as the resolve, it makes us need
+                                                                    // to call buf.resolve(), whereas we wouldn't normally,
+                                                                    // since resolve() should have been called when moving
+                                                                    // from put -> buf.
 
-                                                        // the problem is that when we use these expanded wrappers,
-                                                        // we need to execute the resolution. if we place on the buffer
-                                                        // directly, we can be sure we maintain the correct order.
-                                                        // if we place back on puts instead of the buffer,
-                                                        // we may or may not have the right order anymore.
+                                                                    // the problem is that when we use these expanded wrappers,
+                                                                    // we need to execute the resolution. if we place on the buffer
+                                                                    // directly, we can be sure we maintain the correct order.
+                                                                    // if we place back on puts instead of the buffer,
+                                                                    // we may or may not have the right order anymore.
 
-                                                        // another issue is what if we accept more than the buffer has space for?
-                                                        // what if there were already items on the buffer? do we kick them out,
-                                                        // and put them back in puts? that gives us essentially the same problem --
-                                                        // then we would have puts which don't need put.resolve() to be called,
-                                                        // which doesn't follow the usual pattern.
+                                                                    // another issue is what if we accept more than the buffer has space for?
+                                                                    // what if there were already items on the buffer? do we kick them out,
+                                                                    // and put them back in puts? that gives us essentially the same problem --
+                                                                    // then we would have puts which don't need put.resolve() to be called,
+                                                                    // which doesn't follow the usual pattern.
 
-                                                        // what to do, what to do... try to hammer out the inconsistency at some point.
+                                                                    // what to do, what to do... try to hammer out the inconsistency at some point.
 
-                                                        (_ch$buf = ch.buf).unshift.apply(_ch$buf, _toConsumableArray(wrappers)); // this can expand beyond the actual buffer size. unintuitive?
+                                                                    (_ch$buf = ch.buf).unshift.apply(_ch$buf, (0, _toConsumableArray3.default)(wrappers)); // this can expand beyond the actual buffer size. unintuitive?
+                                                                })();
+                                                            }
                                                     })();
-                                                }
-                                        })();
-                                    } else {
-                                        take = ch.takes.shift();
+                                                } else {
+                                                        take = ch.takes.shift();
 
-                                        take(val);
+                                                        take(val);
+                                                    }
+                                            }
+                                            if (!ch.puts.empty() && !ch.buf.full()) {
+                                                put = ch.puts.shift();
+
+                                                ch.buf.push(put);
+                                                put.resolve();
+                                            }
+
+                                        case 11:
+                                        case 'end':
+                                            return _context6.stop();
                                     }
                                 }
-                                if (!ch.puts.empty() && !ch.buf.full()) {
-                                    put = ch.puts.shift();
+                            }, _loop, _this2);
+                        });
 
-                                    ch.buf.push(put);
-                                    put.resolve();
-                                }
-
-                            case 11:
-                            case 'end':
-                                return context$2$0.stop();
+                    case 1:
+                        if (!(!ch.buf.empty() && !ch.takes.empty())) {
+                            _context7.next = 5;
+                            break;
                         }
-                    }, null, _this2);
-                };
 
-            case 1:
-                if (!(!ch.buf.empty() && !ch.takes.empty())) {
-                    context$1$0.next = 6;
-                    break;
+                        return _context7.delegateYield(_loop(), 't0', 3);
+
+                    case 3:
+                        _context7.next = 1;
+                        break;
+
+                    case 5:
+                        while (!ch.puts.empty() && !ch.buf.full()) {
+                            put = ch.puts.shift();
+
+                            ch.buf.push(put);
+                            put.resolve();
+                        }
+
+                    case 6:
+                    case 'end':
+                        return _context7.stop();
                 }
+            }
+        }, _callee5, this);
+    }));
+    return function _bufferedSlide(_x2) {
+        return ref.apply(this, arguments);
+    };
+})();
 
-                context$1$0.next = 4;
-                return _regeneratorRuntime.awrap(_loop());
-
-            case 4:
-                context$1$0.next = 1;
-                break;
-
-            case 6:
-                while (!ch.puts.empty() && !ch.buf.full()) {
-                    put = ch.puts.shift();
-
-                    ch.buf.push(put);
-                    put.resolve();
-                }
-
-            case 7:
-            case 'end':
-                return context$1$0.stop();
-        }
-    }, null, this);
-}
-
-function _slide(ch) {
-    var _loop2;
-
-    return _regeneratorRuntime.async(function _slide$(context$1$0) {
+var _slide = (function () {
+    var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee6(ch) {
         var _this3 = this;
 
-        while (1) switch (context$1$0.prev = context$1$0.next) {
-            case 0:
-                _loop2 = function callee$1$0() {
-                    var put, val, take;
-                    return _regeneratorRuntime.async(function callee$1$0$(context$2$0) {
-                        while (1) switch (context$2$0.prev = context$2$0.next) {
-                            case 0:
-                                put = ch.puts.shift();
-                                context$2$0.next = 3;
-                                return _regeneratorRuntime.awrap(put.wrapped());
+        var _loop2;
 
-                            case 3:
-                                val = context$2$0.sent;
+        return _regenerator2.default.wrap(function _callee6$(_context9) {
+            while (1) {
+                switch (_context9.prev = _context9.next) {
+                    case 0:
+                        _loop2 = _regenerator2.default.mark(function _loop2() {
+                            var put, val, _take2;
 
-                                if (typeof val !== 'undefined') {
-                                    if (val instanceof _dataStructuresJs.List) {
-                                        (function () {
-                                            // need a way to distinguish this as a "special" array return
-                                            var accepted = [].concat(_toConsumableArray(val));
-                                            if (accepted.length === 0) put.resolve();else if (accepted.length === 1) {
-                                                put.resolve();
-                                                var take = ch.takes.shift();
-                                                take(accepted[0]);
-                                            } else /* val.length > 1 */{
+                            return _regenerator2.default.wrap(function _loop2$(_context8) {
+                                while (1) {
+                                    switch (_context8.prev = _context8.next) {
+                                        case 0:
+                                            put = ch.puts.shift();
+                                            _context8.next = 3;
+                                            return put.wrapped();
+
+                                        case 3:
+                                            val = _context8.sent;
+
+                                            if (typeof val !== 'undefined') {
+                                                if (val instanceof _dataStructures.List) {
                                                     (function () {
-                                                        var _ch$puts;
+                                                        // need a way to distinguish this as a "special" array return
+                                                        var accepted = [].concat((0, _toConsumableArray3.default)(val));
+                                                        if (accepted.length === 0) put.resolve();else if (accepted.length === 1) {
+                                                            put.resolve();
+                                                            var _take = ch.takes.shift();
+                                                            _take(accepted[0]);
+                                                        } else /* val.length > 1 */{
+                                                                (function () {
+                                                                    var _ch$puts;
 
-                                                        var count = 0;
-                                                        var counter = function counter() {
-                                                            count++;
-                                                            if (count === accepted.length) put.resolve();
-                                                        };
-                                                        var wrappers = accepted.map(function (acc) {
-                                                            return wrap(acc, function (x) {
-                                                                return x;
-                                                            }, counter);
-                                                        });
-                                                        (_ch$puts = ch.puts).unshift.apply(_ch$puts, _toConsumableArray(wrappers));
+                                                                    var count = 0;
+                                                                    var counter = function counter() {
+                                                                        count++;
+                                                                        if (count === accepted.length) put.resolve();
+                                                                    };
+                                                                    var wrappers = accepted.map(function (acc) {
+                                                                        return wrap(acc, function (x) {
+                                                                            return x;
+                                                                        }, counter);
+                                                                    });
+                                                                    (_ch$puts = ch.puts).unshift.apply(_ch$puts, (0, _toConsumableArray3.default)(wrappers));
+                                                                })();
+                                                            }
                                                     })();
+                                                } else {
+                                                    put.resolve();
+                                                    _take2 = ch.takes.shift();
+
+                                                    _take2(val);
                                                 }
-                                        })();
-                                    } else {
-                                        put.resolve();
-                                        take = ch.takes.shift();
+                                            } else {
+                                                put.resolve();
+                                            }
 
-                                        take(val);
+                                        case 5:
+                                        case 'end':
+                                            return _context8.stop();
                                     }
-                                } else {
-                                    put.resolve();
                                 }
+                            }, _loop2, _this3);
+                        });
 
-                            case 5:
-                            case 'end':
-                                return context$2$0.stop();
+                    case 1:
+                        if (!(!ch.takes.empty() && !ch.puts.empty())) {
+                            _context9.next = 5;
+                            break;
                         }
-                    }, null, _this3);
-                };
 
-            case 1:
-                if (!(!ch.takes.empty() && !ch.puts.empty())) {
-                    context$1$0.next = 6;
-                    break;
+                        return _context9.delegateYield(_loop2(), 't0', 3);
+
+                    case 3:
+                        _context9.next = 1;
+                        break;
+
+                    case 5:
+                    case 'end':
+                        return _context9.stop();
                 }
-
-                context$1$0.next = 4;
-                return _regeneratorRuntime.awrap(_loop2());
-
-            case 4:
-                context$1$0.next = 1;
-                break;
-
-            case 6:
-            case 'end':
-                return context$1$0.stop();
-        }
-    }, null, this);
-}
+            }
+        }, _callee6, this);
+    }));
+    return function _slide(_x3) {
+        return ref.apply(this, arguments);
+    };
+})();
 
 function canSlide(ch) {
     return ch.buf ? !ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty() : !ch.takes.empty() && !ch.puts.empty();
 }
 
-function slide(ch) {
-    var _ch$puts2;
+var slide = (function () {
+    var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee7(ch) {
+        var _ch$puts2;
 
-    return _regeneratorRuntime.async(function slide$(context$1$0) {
-        while (1) switch (context$1$0.prev = context$1$0.next) {
-            case 0:
-                if (!ch[IS_SLIDING]) {
-                    context$1$0.next = 2;
-                    break;
+        return _regenerator2.default.wrap(function _callee7$(_context10) {
+            while (1) {
+                switch (_context10.prev = _context10.next) {
+                    case 0:
+                        if (!ch[IS_SLIDING]) {
+                            _context10.next = 2;
+                            break;
+                        }
+
+                        return _context10.abrupt('return');
+
+                    case 2:
+                        ch[IS_SLIDING] = true;
+
+                    case 3:
+                        if (!canSlide(ch)) {
+                            _context10.next = 8;
+                            break;
+                        }
+
+                        _context10.next = 6;
+                        return ch[SLIDER](ch);
+
+                    case 6:
+                        _context10.next = 3;
+                        break;
+
+                    case 8:
+                        if (!(ch[STATE] === STATES.CLOSED && !ch.tails.empty() && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty())) {
+                            _context10.next = 16;
+                            break;
+                        }
+
+                        (_ch$puts2 = ch.puts).unshift.apply(_ch$puts2, (0, _toConsumableArray3.default)(ch.tails));
+                        ch.tails = new _dataStructures.List(); // need a way to empty out the list
+
+                    case 11:
+                        if (!canSlide(ch)) {
+                            _context10.next = 16;
+                            break;
+                        }
+
+                        _context10.next = 14;
+                        return ch[SLIDER](ch);
+
+                    case 14:
+                        _context10.next = 11;
+                        break;
+
+                    case 16:
+
+                        if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty() && ch.tails.empty()) flush(ch);
+
+                        ch[IS_SLIDING] = false;
+
+                    case 18:
+                    case 'end':
+                        return _context10.stop();
                 }
-
-                return context$1$0.abrupt('return');
-
-            case 2:
-                ch[IS_SLIDING] = true;
-
-            case 3:
-                if (!canSlide(ch)) {
-                    context$1$0.next = 8;
-                    break;
-                }
-
-                context$1$0.next = 6;
-                return _regeneratorRuntime.awrap(ch[SLIDER](ch));
-
-            case 6:
-                context$1$0.next = 3;
-                break;
-
-            case 8:
-                if (!(ch[STATE] === STATES.CLOSED && !ch.tails.empty() && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty())) {
-                    context$1$0.next = 16;
-                    break;
-                }
-
-                (_ch$puts2 = ch.puts).unshift.apply(_ch$puts2, _toConsumableArray(ch.tails));
-                ch.tails = new _dataStructuresJs.List();
-
-            case 11:
-                if (!canSlide(ch)) {
-                    context$1$0.next = 16;
-                    break;
-                }
-
-                context$1$0.next = 14;
-                return _regeneratorRuntime.awrap(ch[SLIDER](ch));
-
-            case 14:
-                context$1$0.next = 11;
-                break;
-
-            case 16:
-
-                if ((ch[STATE] === STATES.CLOSED || ch[STATE] === STATES.ENDED) && (ch.buf ? ch.buf.empty() : true) && ch.puts.empty() && ch.tails.empty()) flush(ch);
-
-                ch[IS_SLIDING] = false;
-
-            case 18:
-            case 'end':
-                return context$1$0.stop();
-        }
-    }, null, this);
-}
+            }
+        }, _callee7, this);
+    }));
+    return function slide(_x4) {
+        return ref.apply(this, arguments);
+    };
+})();
 
 function timeout() {
-    var delay = arguments[0] === undefined ? 0 : arguments[0];
+    var delay = arguments.length <= 0 || arguments[0] === undefined ? 0 : arguments[0];
 
-    return new _Promise(function (resolve) {
+    return new _promise2.default(function (resolve) {
         setTimeout(resolve, delay);
     });
 }
@@ -515,41 +581,70 @@ var Channel = (function () {
             new Channel(8, x => x * 2) -> Buffered channel, with transform
     */
 
+    // An optional pipeline of channels, to be used to pipe values
+    // from one channel to multiple others.
+
+    // A FixedQueue containing values ready to be taken.
+
+    // A List containing any puts to be appended to the end of the channel
+
     function Channel() {
-        _classCallCheck(this, Channel);
+        (0, _classCallCheck3.default)(this, Channel);
+        this.puts = new _dataStructures.List();
+        this.tails = new _dataStructures.List();
+        this.takes = new _dataStructures.List();
+        this.buf = null;
+        this.transform = null;
+        this.pipeline = [];
+        this.waiting = [];
 
         var size = null;
         var transform = null;
-        if (typeof arguments[0] === 'function') transform = arguments[0];
-        if (typeof arguments[0] === 'number') {
-            size = arguments[0];
-            if (arguments[1] && typeof arguments[1] === 'function') transform = arguments[1];
+        if (typeof (arguments.length <= 0 ? undefined : arguments[0]) === 'function') transform = arguments.length <= 0 ? undefined : arguments[0];
+        if (typeof (arguments.length <= 0 ? undefined : arguments[0]) === 'number') {
+            size = arguments.length <= 0 ? undefined : arguments[0];
+            if ((arguments.length <= 1 ? undefined : arguments[1]) && typeof (arguments.length <= 1 ? undefined : arguments[1]) === 'function') transform = arguments.length <= 1 ? undefined : arguments[1];
         }
-        this.puts = new _dataStructuresJs.List();
-        this.tails = new _dataStructuresJs.List();
-        this.takes = new _dataStructuresJs.List();
         this.transform = transform;
-        this.pipeline = [];
-        this.waiting = [];
         this[STATE] = STATES.OPEN;
 
         if (size) {
-            this.buf = new _dataStructuresJs.FixedQueue(size);
+            this.buf = new _dataStructures.FixedQueue(size);
             this[SLIDER] = _bufferedSlide;
         } else this[SLIDER] = _slide;
     }
 
-    _createClass(Channel, [{
+    /*
+        A helper constructor which will convert any iterable into a channel,
+        placing all of the iterable's values onto that channel.
+    */
+
+    // An optional array of promises, to be resolved when the channel is marked as finished.
+
+    // An optional function to used to transform values passing through the channel.
+
+    // A List containing any takes waiting for values to be provided
+
+    // A List containing any puts which could not be placed directly onto the buffer
+
+    (0, _createClass3.default)(Channel, [{
         key: 'close',
+        // we have a timing problem with pipes.. this resolves it, but is hacky.
 
         /*
             Calls Channel.close for `this`, `all`.
         */
         value: function close() {
-            var all = arguments[0] === undefined ? false : arguments[0];
+            var all = arguments.length <= 0 || arguments[0] === undefined ? false : arguments[0];
 
             return Channel.close(this, all);
         }
+
+        /*
+            Determines if a channel
+            has any values left for `take` to use.
+        */
+
     }, {
         key: 'empty',
 
@@ -559,6 +654,13 @@ var Channel = (function () {
         value: function empty() {
             return Channel.empty(this);
         }
+
+        /*
+            Places a new value onto the provided channel.
+             If the buffer is full, the promise will be pushed
+            onto Channel.puts to be resolved when buffer space is available.
+        */
+
     }, {
         key: 'put',
 
@@ -568,6 +670,13 @@ var Channel = (function () {
         value: function put(val) {
             return Channel.put(this, val);
         }
+
+        /*
+            Takes the first value from the provided channel.
+             If no value is provided, the promise will be pushed
+            onto Channel.takes to be resolved when a value is available.
+        */
+
     }, {
         key: 'take',
 
@@ -586,6 +695,12 @@ var Channel = (function () {
         value: function tail(val) {
             return Channel.tail(this, val);
         }
+
+        /*
+            Helper method for putting values onto a channel
+            from a provided producer whenever there is space.
+        */
+
     }, {
         key: 'produce',
 
@@ -595,6 +710,12 @@ var Channel = (function () {
         value: function produce(producer) {
             return Channel.produce(this, producer);
         }
+
+        /*
+            Helper method for executing a provided consumer
+            each time a channel value is available.
+        */
+
     }, {
         key: 'consume',
 
@@ -602,10 +723,16 @@ var Channel = (function () {
             Calls Channel.consume for `this`, `consumer`.
         */
         value: function consume() {
-            var consumer = arguments[0] === undefined ? function () {} : arguments[0];
+            var consumer = arguments.length <= 0 || arguments[0] === undefined ? function () {} : arguments[0];
 
             return Channel.consume(this, consumer);
         }
+
+        /*
+            Registers a promise to be resolved
+            when the channel has fully ended.
+        */
+
     }, {
         key: 'done',
 
@@ -615,6 +742,16 @@ var Channel = (function () {
         value: function done() {
             return Channel.done(this);
         }
+
+        /*
+            Automatically builds a set of channels
+            for the provided function arguments,
+            setting up a pipe from the first channel
+            all the way down to the last channel.
+             Returns references to both
+            the first and the last channel.
+        */
+
     }, {
         key: 'pipe',
 
@@ -628,6 +765,11 @@ var Channel = (function () {
 
             return Channel.pipe.apply(Channel, [this].concat(channels));
         }
+
+        /*
+            Pipes all provided channels into a new, single destination.
+        */
+
     }, {
         key: 'merge',
 
@@ -658,65 +800,70 @@ var Channel = (function () {
         */
         set: function set(val) {
             this[STATE] = val;
-        },
+        }
 
         /*
             Gets the state of the channel.
         */
+        ,
         get: function get() {
             return this[STATE];
         }
-    }, {
-        key: 'length',
 
         /*
             Gets the length of the channel,
             which is interpreted as the current length of the buffer
             added to any puts which are waiting for space in the buffer.
         */
+
+    }, {
+        key: 'length',
         get: function get() {
             if (this.buf) return this.buf.length + this.puts.length;
             return this.puts.length;
         }
-    }, {
-        key: 'size',
 
         /*
             Gets the size of the channel,
             which is interpreted as the size of the buffer.
         */
+
+    }, {
+        key: 'size',
         get: function get() {
             return this.buf ? this.buf.size : undefined;
         }
-    }], [{
-        key: 'from',
 
         /*
-            A helper constructor which will convert any iterable into a channel,
-            placing all of the iterable's values onto that channel.
+            Marks a channel to no longer be writable.
+             Accepts an optional boolean `all`, to signify
+            whether or not to close the entire pipeline.
         */
-        value: function from(iterable) {
-            var keepOpen = arguments[1] === undefined ? false : arguments[1];
 
-            var arr = [].concat(_toConsumableArray(iterable));
+    }], [{
+        key: 'from',
+        value: function from(iterable) {
+            var keepOpen = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
+
+            var arr = [].concat((0, _toConsumableArray3.default)(iterable));
             var ch = new Channel(arr.length);
             var _iteratorNormalCompletion = true;
             var _didIteratorError = false;
             var _iteratorError = undefined;
 
             try {
-                for (var _iterator = _getIterator(arr), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-                    var val = _step.value;
+                for (var _iterator = (0, _getIterator3.default)(arr), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                    var _val = _step.value;
 
-                    ch.buf.push(val);
+                    ch.buf.push(_val);
                 }
             } catch (err) {
                 _didIteratorError = true;
                 _iteratorError = err;
             } finally {
                 try {
-                    if (!_iteratorNormalCompletion && _iterator['return']) {
-                        _iterator['return']();
+                    if (!_iteratorNormalCompletion && _iterator.return) {
+                        _iterator.return();
                     }
                 } finally {
                     if (_didIteratorError) {
@@ -730,42 +877,25 @@ var Channel = (function () {
         }
     }, {
         key: 'close',
-
-        /*
-            Marks a channel to no longer be writable.
-             Accepts an optional boolean `all`, to signify
-            whether or not to close the entire pipeline.
-        */
         value: function close(ch) {
-            var all = arguments[1] === undefined ? false : arguments[1];
+            var all = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
 
             ch.state = STATES.CLOSED;
             if (all) ch[SHOULD_CLOSE] = true;
             setTimeout(function () {
                 return slide(ch);
-            }); // we have a timing problem with pipes.. this resolves it, but is hacky.
+            });
         }
     }, {
         key: 'empty',
-
-        /*
-            Determines if a channel
-            has any values left for `take` to use.
-        */
         value: function empty(ch) {
             if (ch.buf) return ch.buf.empty() && ch.puts.empty();
             return ch.puts.empty();
         }
     }, {
         key: 'put',
-
-        /*
-            Places a new value onto the provided channel.
-             If the buffer is full, the promise will be pushed
-            onto Channel.puts to be resolved when buffer space is available.
-        */
         value: function put(ch, val) {
-            return new _Promise(function (resolve) {
+            return new _promise2.default(function (resolve) {
                 if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
                 var put = wrap(val, ch.transform, resolve);
                 ch.puts.push(put);
@@ -774,14 +904,8 @@ var Channel = (function () {
         }
     }, {
         key: 'take',
-
-        /*
-            Takes the first value from the provided channel.
-             If no value is provided, the promise will be pushed
-            onto Channel.takes to be resolved when a value is available.
-        */
         value: function take(ch) {
-            return new _Promise(function (resolve) {
+            return new _promise2.default(function (resolve) {
                 if (ch.state === STATES.ENDED) return resolve(ACTIONS.DONE);
                 ch.takes.push(resolve);
                 slide(ch);
@@ -790,7 +914,7 @@ var Channel = (function () {
     }, {
         key: 'tail',
         value: function tail(ch, val) {
-            return new _Promise(function (resolve) {
+            return new _promise2.default(function (resolve) {
                 if (ch.state !== STATES.OPEN) return resolve(ACTIONS.DONE);
                 var tail = wrap(val, ch.transform, resolve);
                 ch.tails.push(tail);
@@ -799,231 +923,223 @@ var Channel = (function () {
         }
     }, {
         key: 'produce',
-
-        /*
-            Helper method for putting values onto a channel
-            from a provided producer whenever there is space.
-        */
-        value: function produce(ch, producer) {
-            var spin;
-            return _regeneratorRuntime.async(function produce$(context$2$0) {
+        value: (function () {
+            var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee9(ch, producer) {
                 var _this4 = this;
 
-                while (1) switch (context$2$0.prev = context$2$0.next) {
-                    case 0:
-                        spin = true;
+                var spin;
+                return _regenerator2.default.wrap(function _callee9$(_context12) {
+                    while (1) {
+                        switch (_context12.prev = _context12.next) {
+                            case 0:
+                                spin = true;
 
-                        (function callee$2$0() {
-                            var val, r;
-                            return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
-                                while (1) switch (context$3$0.prev = context$3$0.next) {
-                                    case 0:
-                                        context$3$0.prev = 0;
+                                (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee8() {
+                                    var _val2, r;
 
-                                    case 1:
-                                        if (!spin) {
-                                            context$3$0.next = 18;
-                                            break;
+                                    return _regenerator2.default.wrap(function _callee8$(_context11) {
+                                        while (1) {
+                                            switch (_context11.prev = _context11.next) {
+                                                case 0:
+                                                    _context11.prev = 0;
+
+                                                case 1:
+                                                    if (!spin) {
+                                                        _context11.next = 18;
+                                                        break;
+                                                    }
+
+                                                    _val2 = producer();
+
+                                                    if (!(_val2 instanceof _promise2.default)) {
+                                                        _context11.next = 9;
+                                                        break;
+                                                    }
+
+                                                    _context11.next = 6;
+                                                    return _val2;
+
+                                                case 6:
+                                                    _val2 = _context11.sent;
+                                                    _context11.next = 11;
+                                                    break;
+
+                                                case 9:
+                                                    _context11.next = 11;
+                                                    return timeout();
+
+                                                case 11:
+                                                    _context11.next = 13;
+                                                    return Channel.put(ch, _val2);
+
+                                                case 13:
+                                                    r = _context11.sent;
+
+                                                    if (!(r === ACTIONS.DONE)) {
+                                                        _context11.next = 16;
+                                                        break;
+                                                    }
+
+                                                    return _context11.abrupt('break', 18);
+
+                                                case 16:
+                                                    _context11.next = 1;
+                                                    break;
+
+                                                case 18:
+                                                    _context11.next = 23;
+                                                    break;
+
+                                                case 20:
+                                                    _context11.prev = 20;
+                                                    _context11.t0 = _context11['catch'](0);
+
+                                                    expose(_context11.t0);
+
+                                                case 23:
+                                                case 'end':
+                                                    return _context11.stop();
+                                            }
                                         }
+                                    }, _callee8, _this4, [[0, 20]]);
+                                }))();
+                                return _context12.abrupt('return', function () {
+                                    spin = false;
+                                });
 
-                                        val = producer();
-
-                                        if (!(val instanceof _Promise)) {
-                                            context$3$0.next = 9;
-                                            break;
-                                        }
-
-                                        context$3$0.next = 6;
-                                        return _regeneratorRuntime.awrap(val);
-
-                                    case 6:
-                                        val = context$3$0.sent;
-                                        context$3$0.next = 11;
-                                        break;
-
-                                    case 9:
-                                        context$3$0.next = 11;
-                                        return _regeneratorRuntime.awrap(timeout());
-
-                                    case 11:
-                                        context$3$0.next = 13;
-                                        return _regeneratorRuntime.awrap(Channel.put(ch, val));
-
-                                    case 13:
-                                        r = context$3$0.sent;
-
-                                        if (!(r === ACTIONS.DONE)) {
-                                            context$3$0.next = 16;
-                                            break;
-                                        }
-
-                                        return context$3$0.abrupt('break', 18);
-
-                                    case 16:
-                                        context$3$0.next = 1;
-                                        break;
-
-                                    case 18:
-                                        context$3$0.next = 23;
-                                        break;
-
-                                    case 20:
-                                        context$3$0.prev = 20;
-                                        context$3$0.t0 = context$3$0['catch'](0);
-
-                                        expose(context$3$0.t0);
-
-                                    case 23:
-                                    case 'end':
-                                        return context$3$0.stop();
-                                }
-                            }, null, _this4, [[0, 20]]);
-                        })();
-                        return context$2$0.abrupt('return', function () {
-                            spin = false;
-                        });
-
-                    case 3:
-                    case 'end':
-                        return context$2$0.stop();
-                }
-            }, null, this);
-        }
+                            case 3:
+                            case 'end':
+                                return _context12.stop();
+                        }
+                    }
+                }, _callee9, this);
+            }));
+            return function produce(_x10, _x11) {
+                return ref.apply(this, arguments);
+            };
+        })()
     }, {
         key: 'consume',
-
-        /*
-            Helper method for executing a provided consumer
-            each time a channel value is available.
-        */
-        value: function consume(ch) {
-            var consumer = arguments[1] === undefined ? function () {} // noop default
-            : arguments[1];
-            return _regeneratorRuntime.async(function consume$(context$2$0) {
+        value: (function () {
+            var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee11(ch) {
                 var _this5 = this;
 
-                while (1) switch (context$2$0.prev = context$2$0.next) {
-                    case 0:
-                        ch[IS_CONSUMING] = true;
-                        (function callee$2$0() {
-                            var taking, val, consuming;
-                            return _regeneratorRuntime.async(function callee$2$0$(context$3$0) {
-                                while (1) switch (context$3$0.prev = context$3$0.next) {
-                                    case 0:
-                                        taking = Channel.take(ch);
+                var consumer = arguments.length <= 1 || arguments[1] === undefined ? function () {} : arguments[1];
+                return _regenerator2.default.wrap(function _callee11$(_context14) {
+                    while (1) {
+                        switch (_context14.prev = _context14.next) {
+                            case 0:
+                                ch[IS_CONSUMING] = true;
+                                (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee10() {
+                                    var taking, _val3, consuming;
 
-                                    case 1:
-                                        if (!ch[IS_CONSUMING]) {
-                                            context$3$0.next = 13;
-                                            break;
+                                    return _regenerator2.default.wrap(function _callee10$(_context13) {
+                                        while (1) {
+                                            switch (_context13.prev = _context13.next) {
+                                                case 0:
+                                                    taking = Channel.take(ch);
+
+                                                case 1:
+                                                    if (!ch[IS_CONSUMING]) {
+                                                        _context13.next = 13;
+                                                        break;
+                                                    }
+
+                                                    _context13.next = 4;
+                                                    return taking;
+
+                                                case 4:
+                                                    _val3 = _context13.sent;
+
+                                                    if (!(_val3 === ACTIONS.DONE)) {
+                                                        _context13.next = 7;
+                                                        break;
+                                                    }
+
+                                                    return _context13.abrupt('break', 13);
+
+                                                case 7:
+                                                    consuming = consumer(_val3);
+
+                                                    taking = Channel.take(ch);
+                                                    _context13.next = 11;
+                                                    return consuming;
+
+                                                case 11:
+                                                    _context13.next = 1;
+                                                    break;
+
+                                                case 13:
+                                                    ch[IS_CONSUMING] = false;
+
+                                                    if (!ch[IS_FLUSHING]) {
+                                                        _context13.next = 19;
+                                                        break;
+                                                    }
+
+                                                    _context13.next = 17;
+                                                    return ch[IS_FLUSHING];
+
+                                                case 17:
+                                                    _context13.next = 20;
+                                                    break;
+
+                                                case 19:
+                                                    finish(ch);
+
+                                                case 20:
+                                                case 'end':
+                                                    return _context13.stop();
+                                            }
                                         }
+                                    }, _callee10, _this5);
+                                }))();
 
-                                        context$3$0.next = 4;
-                                        return _regeneratorRuntime.awrap(taking);
-
-                                    case 4:
-                                        val = context$3$0.sent;
-
-                                        if (!(val === ACTIONS.DONE)) {
-                                            context$3$0.next = 7;
-                                            break;
-                                        }
-
-                                        return context$3$0.abrupt('break', 13);
-
-                                    case 7:
-                                        consuming = consumer(val);
-
-                                        taking = Channel.take(ch);
-                                        context$3$0.next = 11;
-                                        return _regeneratorRuntime.awrap(consuming);
-
-                                    case 11:
-                                        context$3$0.next = 1;
-                                        break;
-
-                                    case 13:
-                                        ch[IS_CONSUMING] = false;
-
-                                        if (!ch[IS_FLUSHING]) {
-                                            context$3$0.next = 19;
-                                            break;
-                                        }
-
-                                        context$3$0.next = 17;
-                                        return _regeneratorRuntime.awrap(ch[IS_FLUSHING]);
-
-                                    case 17:
-                                        context$3$0.next = 20;
-                                        break;
-
-                                    case 19:
-                                        finish(ch);
-
-                                    case 20:
-                                    case 'end':
-                                        return context$3$0.stop();
-                                }
-                            }, null, _this5);
-                        })();
-
-                    case 2:
-                    case 'end':
-                        return context$2$0.stop();
-                }
-            }, null, this);
-        }
+                            case 2:
+                            case 'end':
+                                return _context14.stop();
+                        }
+                    }
+                }, _callee11, this);
+            }));
+            return function consume(_x12, _x13) {
+                return ref.apply(this, arguments);
+            };
+        })()
     }, {
         key: 'done',
-
-        /*
-            Registers a promise to be resolved
-            when the channel has fully ended.
-        */
         value: function done(ch) {
-            return new _Promise(function (resolve) {
+            return new _promise2.default(function (resolve) {
                 if (ch.state === STATES.ENDED) return resolve();
                 ch.waiting.push(resolve);
             });
         }
     }, {
         key: 'pipeline',
-
-        /*
-            Automatically builds a set of channels
-            for the provided function arguments,
-            setting up a pipe from the first channel
-            all the way down to the last channel.
-             Returns references to both
-            the first and the last channel.
-        */
         value: function pipeline() {
-            var first = null;
-            var last = null;
-
             for (var _len4 = arguments.length, args = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
                 args[_key4] = arguments[_key4];
             }
 
+            var first = null;
+            var last = null;
             if (args.length === 0) {
                 first = new Channel();
                 last = first;
             } else {
-                if (Array.isArray(args[0])) args = [].concat(_toConsumableArray(args[0]));
-                var channels = args.filter(function (x) {
+                if (Array.isArray(args[0])) args = [].concat((0, _toConsumableArray3.default)(args[0]));
+                var _channels = args.filter(function (x) {
                     return x instanceof Function;
                 }).map(function (fn) {
                     return new Channel(fn);
                 });
-                first = channels[0];
-                last = channels.reduce(function (x, y) {
+                first = _channels[0];
+                last = _channels.reduce(function (x, y) {
                     return x.pipe(y);
                 });
             }
             return [first, last];
         }
-    }, {
-        key: 'pipe',
 
         /*
             Builds a pipeline from a parent channel
@@ -1034,9 +1150,12 @@ var Channel = (function () {
              do NOT bubble up to the user yet in nodejs.
              will be fixed in the future, supposedly).
         */
+
+    }, {
+        key: 'pipe',
         value: function pipe(parent) {
             var _parent$pipeline,
-                _this7 = this;
+                _this6 = this;
 
             for (var _len5 = arguments.length, channels = Array(_len5 > 1 ? _len5 - 1 : 0), _key5 = 1; _key5 < _len5; _key5++) {
                 channels[_key5 - 1] = arguments[_key5];
@@ -1046,122 +1165,125 @@ var Channel = (function () {
             if (!parent[ACTIONS.CANCEL]) {
                 (function () {
                     var running = true;
-                    (function callee$3$0() {
-                        var _loop3, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, _ret9;
+                    (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee12() {
+                        var _loop3, _ret9;
 
-                        return _regeneratorRuntime.async(function callee$3$0$(context$4$0) {
-                            var _this6 = this;
+                        return _regenerator2.default.wrap(function _callee12$(_context16) {
+                            while (1) {
+                                switch (_context16.prev = _context16.next) {
+                                    case 0:
+                                        _loop3 = _regenerator2.default.mark(function _loop3() {
+                                            var val, _iteratorNormalCompletion2, _didIteratorError2, _iteratorError2, _iterator2, _step2, channel;
 
-                            while (1) switch (context$4$0.prev = context$4$0.next) {
-                                case 0:
-                                    _loop3 = function callee$4$0() {
-                                        var val, channel;
-                                        return _regeneratorRuntime.async(function callee$4$0$(context$5$0) {
-                                            while (1) switch (context$5$0.prev = context$5$0.next) {
-                                                case 0:
-                                                    context$5$0.next = 2;
-                                                    return _regeneratorRuntime.awrap(parent.take());
+                                            return _regenerator2.default.wrap(function _loop3$(_context15) {
+                                                while (1) {
+                                                    switch (_context15.prev = _context15.next) {
+                                                        case 0:
+                                                            _context15.next = 2;
+                                                            return parent.take();
 
-                                                case 2:
-                                                    val = context$5$0.sent;
+                                                        case 2:
+                                                            val = _context15.sent;
 
-                                                    if (!(val === ACTIONS.DONE)) {
-                                                        context$5$0.next = 25;
-                                                        break;
+                                                            if (!(val === ACTIONS.DONE)) {
+                                                                _context15.next = 25;
+                                                                break;
+                                                            }
+
+                                                            if (!parent[SHOULD_CLOSE]) {
+                                                                _context15.next = 24;
+                                                                break;
+                                                            }
+
+                                                            _iteratorNormalCompletion2 = true;
+                                                            _didIteratorError2 = false;
+                                                            _iteratorError2 = undefined;
+                                                            _context15.prev = 8;
+
+                                                            for (_iterator2 = (0, _getIterator3.default)(parent.pipeline); !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                                                                channel = _step2.value;
+
+                                                                channel.close(true);
+                                                            }_context15.next = 16;
+                                                            break;
+
+                                                        case 12:
+                                                            _context15.prev = 12;
+                                                            _context15.t0 = _context15['catch'](8);
+                                                            _didIteratorError2 = true;
+                                                            _iteratorError2 = _context15.t0;
+
+                                                        case 16:
+                                                            _context15.prev = 16;
+                                                            _context15.prev = 17;
+
+                                                            if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                                                                _iterator2.return();
+                                                            }
+
+                                                        case 19:
+                                                            _context15.prev = 19;
+
+                                                            if (!_didIteratorError2) {
+                                                                _context15.next = 22;
+                                                                break;
+                                                            }
+
+                                                            throw _iteratorError2;
+
+                                                        case 22:
+                                                            return _context15.finish(19);
+
+                                                        case 23:
+                                                            return _context15.finish(16);
+
+                                                        case 24:
+                                                            return _context15.abrupt('return', 'break');
+
+                                                        case 25:
+                                                            _context15.next = 27;
+                                                            return _promise2.default.all(parent.pipeline.map(function (x) {
+                                                                return x.put(val);
+                                                            }));
+
+                                                        case 27:
+                                                        case 'end':
+                                                            return _context15.stop();
                                                     }
+                                                }
+                                            }, _loop3, _this6, [[8, 12, 16, 24], [17,, 19, 23]]);
+                                        });
 
-                                                    if (!parent[SHOULD_CLOSE]) {
-                                                        context$5$0.next = 24;
-                                                        break;
-                                                    }
+                                    case 1:
+                                        if (!running) {
+                                            _context16.next = 8;
+                                            break;
+                                        }
 
-                                                    _iteratorNormalCompletion2 = true;
-                                                    _didIteratorError2 = false;
-                                                    _iteratorError2 = undefined;
-                                                    context$5$0.prev = 8;
+                                        return _context16.delegateYield(_loop3(), 't0', 3);
 
-                                                    for (_iterator2 = _getIterator(parent.pipeline); !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                                                        channel = _step2.value;
+                                    case 3:
+                                        _ret9 = _context16.t0;
 
-                                                        channel.close(true);
-                                                    }context$5$0.next = 16;
-                                                    break;
+                                        if (!(_ret9 === 'break')) {
+                                            _context16.next = 6;
+                                            break;
+                                        }
 
-                                                case 12:
-                                                    context$5$0.prev = 12;
-                                                    context$5$0.t0 = context$5$0['catch'](8);
-                                                    _didIteratorError2 = true;
-                                                    _iteratorError2 = context$5$0.t0;
+                                        return _context16.abrupt('break', 8);
 
-                                                case 16:
-                                                    context$5$0.prev = 16;
-                                                    context$5$0.prev = 17;
-
-                                                    if (!_iteratorNormalCompletion2 && _iterator2['return']) {
-                                                        _iterator2['return']();
-                                                    }
-
-                                                case 19:
-                                                    context$5$0.prev = 19;
-
-                                                    if (!_didIteratorError2) {
-                                                        context$5$0.next = 22;
-                                                        break;
-                                                    }
-
-                                                    throw _iteratorError2;
-
-                                                case 22:
-                                                    return context$5$0.finish(19);
-
-                                                case 23:
-                                                    return context$5$0.finish(16);
-
-                                                case 24:
-                                                    return context$5$0.abrupt('return', 'break');
-
-                                                case 25:
-                                                    context$5$0.next = 27;
-                                                    return _regeneratorRuntime.awrap(_Promise.all(parent.pipeline.map(function (x) {
-                                                        return x.put(val);
-                                                    })));
-
-                                                case 27:
-                                                case 'end':
-                                                    return context$5$0.stop();
-                                            }
-                                        }, null, _this6, [[8, 12, 16, 24], [17,, 19, 23]]);
-                                    };
-
-                                case 1:
-                                    if (!running) {
-                                        context$4$0.next = 9;
+                                    case 6:
+                                        _context16.next = 1;
                                         break;
-                                    }
 
-                                    context$4$0.next = 4;
-                                    return _regeneratorRuntime.awrap(_loop3());
-
-                                case 4:
-                                    _ret9 = context$4$0.sent;
-
-                                    if (!(_ret9 === 'break')) {
-                                        context$4$0.next = 7;
-                                        break;
-                                    }
-
-                                    return context$4$0.abrupt('break', 9);
-
-                                case 7:
-                                    context$4$0.next = 1;
-                                    break;
-
-                                case 9:
-                                case 'end':
-                                    return context$4$0.stop();
+                                    case 8:
+                                    case 'end':
+                                        return _context16.stop();
+                                }
                             }
-                        }, null, _this7);
-                    })();
+                        }, _callee12, _this6);
+                    }))();
+                    // eslint-disable-line no-loop-func
                     parent[ACTIONS.CANCEL] = function () {
                         running = false;
                     };
@@ -1171,33 +1293,30 @@ var Channel = (function () {
         }
     }, {
         key: 'merge',
-
-        /*
-            Pipes all provided channels into a new, single destination.
-        */
         value: function merge() {
             var child = new Channel();
+
+            for (var _len6 = arguments.length, channels = Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
+                channels[_key6] = arguments[_key6];
+            }
+
             var _iteratorNormalCompletion3 = true;
             var _didIteratorError3 = false;
             var _iteratorError3 = undefined;
 
             try {
-                for (var _len6 = arguments.length, channels = Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
-                    channels[_key6] = arguments[_key6];
-                }
+                for (var _iterator3 = (0, _getIterator3.default)(channels), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+                    var parent = _step3.value;
 
-                for (var _iterator3 = _getIterator(channels), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-                    var _parent = _step3.value;
-
-                    _parent.pipe(child);
+                    parent.pipe(child);
                 }
             } catch (err) {
                 _didIteratorError3 = true;
                 _iteratorError3 = err;
             } finally {
                 try {
-                    if (!_iteratorNormalCompletion3 && _iterator3['return']) {
-                        _iterator3['return']();
+                    if (!_iteratorNormalCompletion3 && _iterator3.return) {
+                        _iterator3.return();
                     }
                 } finally {
                     if (_didIteratorError3) {
@@ -1211,13 +1330,17 @@ var Channel = (function () {
     }, {
         key: 'unpipe',
         value: function unpipe(parent) {
+            for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
+                channels[_key7 - 1] = arguments[_key7];
+            }
+
             var _iteratorNormalCompletion4 = true;
             var _didIteratorError4 = false;
             var _iteratorError4 = undefined;
 
             try {
-                for (var _iterator4 = _getIterator(_Array$entries(parent.pipeline)), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-                    var _step4$value = _slicedToArray(_step4.value, 2);
+                for (var _iterator4 = (0, _getIterator3.default)((0, _entries2.default)(parent.pipeline)), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+                    var _step4$value = (0, _slicedToArray3.default)(_step4.value, 2);
 
                     var index = _step4$value[0];
                     var pipe = _step4$value[1];
@@ -1226,11 +1349,7 @@ var Channel = (function () {
                     var _iteratorError5 = undefined;
 
                     try {
-                        for (var _len7 = arguments.length, channels = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
-                            channels[_key7 - 1] = arguments[_key7];
-                        }
-
-                        for (var _iterator5 = _getIterator(channels), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+                        for (var _iterator5 = (0, _getIterator3.default)(channels), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
                             var ch2 = _step5.value;
 
                             if (pipe === ch2) parent.pipeline.splice(index, 1);
@@ -1240,8 +1359,8 @@ var Channel = (function () {
                         _iteratorError5 = err;
                     } finally {
                         try {
-                            if (!_iteratorNormalCompletion5 && _iterator5['return']) {
-                                _iterator5['return']();
+                            if (!_iteratorNormalCompletion5 && _iterator5.return) {
+                                _iterator5.return();
                             }
                         } finally {
                             if (_didIteratorError5) {
@@ -1255,8 +1374,8 @@ var Channel = (function () {
                 _iteratorError4 = err;
             } finally {
                 try {
-                    if (!_iteratorNormalCompletion4 && _iterator4['return']) {
-                        _iterator4['return']();
+                    if (!_iteratorNormalCompletion4 && _iterator4.return) {
+                        _iterator4.return();
                     }
                 } finally {
                     if (_didIteratorError4) {
@@ -1269,28 +1388,9 @@ var Channel = (function () {
             return parent;
         }
     }]);
-
     return Channel;
 })();
 
-exports['default'] = Channel;
+exports.default = Channel;
 
 Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
-
-// this error is never expected to be thrown
-// just a sanity check during development
-// need a way to empty out the list
-
-// A List containing any puts which could not be placed directly onto the buffer
-
-// A List containing any takes waiting for values to be provided
-
-// A FixedQueue containing values ready to be taken.
-
-// An optional function to used to transform values passing through the channel.
-
-// An optional pipeline of channels, to be used to pipe values
-// from one channel to multiple others.
-
-// An optional array of promises, to be resolved when the channel is marked as finished.
-// eslint-disable-line no-loop-func

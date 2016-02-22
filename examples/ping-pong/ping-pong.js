@@ -1,4 +1,4 @@
-import Channel, { timeout } from 'async-csp';
+import Channel, { timeout } from '../../dist/channel.js';
 
 async function player(name, table) {
     while (true) {
@@ -22,7 +22,7 @@ export async function run() {
     player('pong', table);
 
     console.log('Serving ball...');
-    let ball = {hits: 0};
+    let ball = { hits: 0 };
     await table.put(ball);
     await timeout(1000);
 

@@ -563,8 +563,8 @@ export default class Channel {
             if (Array.isArray(args[0]))
                 args = [ ...args[0] ];
             let channels = args
-                .filter(x => x instanceof Function)
-                .map(fn => new Channel(fn));
+                .filter(x => x instanceof Function || x instanceof Channel)
+                .map(x => x instanceof Channel ? x : new Channel(x));
             first = channels[0];
             last = channels.reduce((x, y) => x.pipe(y));
         }

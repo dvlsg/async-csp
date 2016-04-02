@@ -583,6 +583,7 @@ export default class Channel {
          will be fixed in the future, supposedly).
     */
     static pipe(parent, ...channels) {
+        channels = channels.map(x => x instanceof Function ? new Channel(x) : x);
         parent.pipeline.push(...channels);
         if (!parent[ACTIONS.CANCEL]) {
             let running = true;

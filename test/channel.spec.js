@@ -531,6 +531,17 @@ describe('Channel', function() {
                 assert.equal(await ch3.take(), { y: i + 2 });
         });
 
+        it('should accept transforms and turn them into channels', async() => {
+            let ch1 = new Channel(x => x + 2);
+            let ch3 = ch1
+                .pipe(x => ({ x }))
+                .pipe(x => ({ y: x.x }));
+            for (let i = 0; i < 5; i++)
+                ch1.put(i);
+            for (let i = 0; i < 5; i++)
+                assert.equal(await ch3.take(), { y: i + 2 });
+        });
+
         it('should be able to put values onto any channel in the pipeline', async() => {
             let ch1 = new Channel();
             let ch2 = new Channel();

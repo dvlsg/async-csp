@@ -531,6 +531,17 @@ describe('Channel', function() {
                 assert.equal(await ch3.take(), { y: i + 2 });
         });
 
+        it('should accept transforms and turn them into channels', async() => {
+            let ch1 = new Channel(x => x + 2);
+            let ch3 = ch1
+                .pipe(x => ({ x }))
+                .pipe(x => ({ y: x.x }));
+            for (let i = 0; i < 5; i++)
+                ch1.put(i);
+            for (let i = 0; i < 5; i++)
+                assert.equal(await ch3.take(), { y: i + 2 });
+        });
+
         it('should be able to put values onto any channel in the pipeline', async() => {
             let ch1 = new Channel();
             let ch2 = new Channel();
@@ -687,6 +698,31 @@ describe('Channel', function() {
             let [ ch1, ch3 ] = Channel.pipeline(
                 x => x + 2,
                 x => x ** 2,
+                x => x / 2
+            );
+            assert.equal(ch1.pipeline.length, 1); // since ch1 -> ch2 only
+            let ch2 = ch1.pipeline[0];
+            assert.equal(ch2.pipeline.length, 1);
+            assert.equal(ch2.pipeline[0], ch3);
+            ch1.put(1);
+            ch1.put(2);
+            ch1.put(3);
+            ch1.close(true);
+            assert.equal(await ch3.take(), 4.5);
+            assert.equal(await ch3.take(), 8);
+            assert.equal(await ch3.take(), 12.5);
+            await ch1.done();
+            await ch2.done();
+            await ch3.done();
+            assert.equal(ch1.state, STATES.ENDED);
+            assert.equal(ch2.state, STATES.ENDED);
+            assert.equal(ch3.state, STATES.ENDED);
+        });
+
+        it('should accept a mix of channels and callbacks', async() => {
+            let [ ch1, ch3 ] = Channel.pipeline(
+                x => x + 2,
+                new Channel(x => x ** 2),
                 x => x / 2
             );
             assert.equal(ch1.pipeline.length, 1); // since ch1 -> ch2 only

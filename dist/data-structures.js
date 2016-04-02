@@ -60,7 +60,7 @@ var SIZE = '_size';
 
 // internal to be inherited
 
-var Data = function () {
+var Data = (function () {
     function Data() {
         (0, _classCallCheck3.default)(this, Data);
 
@@ -109,10 +109,10 @@ var Data = function () {
         }
     }]);
     return Data;
-}();
+})();
 // Data[Symbol.toStringTag] = 'Data';
 
-var Stack = exports.Stack = function (_Data) {
+var Stack = exports.Stack = (function (_Data) {
     (0, _inherits3.default)(Stack, _Data);
 
     function Stack() {
@@ -142,9 +142,9 @@ var Stack = exports.Stack = function (_Data) {
         }
     }]);
     return Stack;
-}(Data);
+})(Data);
 
-var FixedStack = exports.FixedStack = function (_Stack) {
+var FixedStack = exports.FixedStack = (function (_Stack) {
     (0, _inherits3.default)(FixedStack, _Stack);
 
     function FixedStack() {
@@ -179,9 +179,9 @@ var FixedStack = exports.FixedStack = function (_Stack) {
         }
     }]);
     return FixedStack;
-}(Stack);
+})(Stack);
 
-var Queue = exports.Queue = function (_Data2) {
+var Queue = exports.Queue = (function (_Data2) {
     (0, _inherits3.default)(Queue, _Data2);
 
     function Queue() {
@@ -211,9 +211,9 @@ var Queue = exports.Queue = function (_Data2) {
         }
     }]);
     return Queue;
-}(Data);
+})(Data);
 
-var List = exports.List = function (_Queue) {
+var List = exports.List = (function (_Queue) {
     (0, _inherits3.default)(List, _Queue);
 
     function List() {
@@ -235,9 +235,9 @@ var List = exports.List = function (_Queue) {
         }
     }]);
     return List;
-}(Queue);
+})(Queue);
 
-var FixedQueue = exports.FixedQueue = function (_Queue2) {
+var FixedQueue = exports.FixedQueue = (function (_Queue2) {
     (0, _inherits3.default)(FixedQueue, _Queue2);
 
     function FixedQueue() {
@@ -281,4 +281,4 @@ var FixedQueue = exports.FixedQueue = function (_Queue2) {
         }
     }]);
     return FixedQueue;
-}(Queue);
+})(Queue);

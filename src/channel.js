@@ -255,7 +255,7 @@ export function timeout(delay = 0) {
     });
 }
 
-export default class Channel {
+export class Channel {
 
     // A List containing any puts which could not be placed directly onto the buffer
     puts = new List();
@@ -563,8 +563,8 @@ export default class Channel {
             if (Array.isArray(args[0]))
                 args = [ ...args[0] ];
             let channels = args
-                .filter(x => x instanceof Function)
-                .map(fn => new Channel(fn));
+                .filter(x => x instanceof Function || x instanceof Channel)
+                .map(x => x instanceof Channel ? x : new Channel(x));
             first = channels[0];
             last = channels.reduce((x, y) => x.pipe(y));
         }
@@ -583,6 +583,7 @@ export default class Channel {
          will be fixed in the future, supposedly).
     */
     static pipe(parent, ...channels) {
+        channels = channels.map(x => x instanceof Function ? new Channel(x) : x);
         parent.pipeline.push(...channels);
         if (!parent[ACTIONS.CANCEL]) {
             let running = true;
@@ -648,3 +649,5 @@ export default class Channel {
 }
 
 Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
+
+export default Channel;

@@ -255,7 +255,7 @@ export function timeout(delay = 0) {
     });
 }
 
-export default class Channel {
+export class Channel {
 
     // A List containing any puts which could not be placed directly onto the buffer
     puts = new List();
@@ -649,3 +649,5 @@ export default class Channel {
 }
 
 Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
+
+export default Channel;

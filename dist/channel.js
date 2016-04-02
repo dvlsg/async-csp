@@ -5,7 +5,7 @@ var _context;
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
-exports.ACTIONS = exports.STATES = undefined;
+exports.Channel = exports.ACTIONS = exports.STATES = undefined;
 exports.timeout = timeout;
 
 var _slicedToArray2 = require('babel-runtime/helpers/slicedToArray');
@@ -267,7 +267,7 @@ var _bufferedSlide = (function () {
                 switch (_context7.prev = _context7.next) {
                     case 0:
                         _loop = _regenerator2.default.mark(function _loop() {
-                            var buf, val, take, put;
+                            var buf, val, take;
                             return _regenerator2.default.wrap(function _loop$(_context6) {
                                 while (1) {
                                     switch (_context6.prev = _context6.next) {
@@ -345,14 +345,8 @@ var _bufferedSlide = (function () {
                                                         take(val);
                                                     }
                                             }
-                                            if (!ch.puts.empty() && !ch.buf.full()) {
-                                                put = ch.puts.shift();
 
-                                                ch.buf.push(put);
-                                                put.resolve();
-                                            }
-
-                                        case 11:
+                                        case 10:
                                         case 'end':
                                             return _context6.stop();
                                     }
@@ -568,7 +562,7 @@ function timeout() {
     });
 }
 
-var Channel = (function () {
+var Channel = exports.Channel = (function () {
 
     /*
         Default constructor for a Channel.
@@ -1129,9 +1123,9 @@ var Channel = (function () {
             } else {
                 if (Array.isArray(args[0])) args = [].concat((0, _toConsumableArray3.default)(args[0]));
                 var _channels = args.filter(function (x) {
-                    return x instanceof Function;
-                }).map(function (fn) {
-                    return new Channel(fn);
+                    return x instanceof Function || x instanceof Channel;
+                }).map(function (x) {
+                    return x instanceof Channel ? x : new Channel(x);
                 });
                 first = _channels[0];
                 last = _channels.reduce(function (x, y) {
@@ -1161,7 +1155,10 @@ var Channel = (function () {
                 channels[_key5 - 1] = arguments[_key5];
             }
 
-            (_parent$pipeline = parent.pipeline).push.apply(_parent$pipeline, channels);
+            channels = channels.map(function (x) {
+                return x instanceof Function ? new Channel(x) : x;
+            });
+            (_parent$pipeline = parent.pipeline).push.apply(_parent$pipeline, (0, _toConsumableArray3.default)(channels));
             if (!parent[ACTIONS.CANCEL]) {
                 (function () {
                     var running = true;
@@ -1391,6 +1388,6 @@ var Channel = (function () {
     return Channel;
 })();
 
-exports.default = Channel;
-
 Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
+
+exports.default = Channel;

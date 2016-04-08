@@ -5,3 +5,4 @@ examples
 .eslintrc
 .npmignore
 gulpfile.js
+webpack.babel.js

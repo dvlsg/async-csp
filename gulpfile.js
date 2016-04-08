@@ -5,6 +5,7 @@ var plumber  = require('gulp-plumber');
 var babel    = require('gulp-babel');
 var del      = require('del');
 var sequence = require('run-sequence');
+var webpack  = require('webpack');
 
 require('babel-register'); // for mocha tests
 
@@ -36,12 +37,23 @@ gulp.task('clean', function(done) {
     return del([distDir], done);
 });
 
-gulp.task('build', function() {
-    return gulp.src(srcGlob)
+gulp.task('build', function(done) {
+
+       gulp.src(srcGlob)
         .pipe(plumber())
         .pipe(babel()) // config in .babelrc
         .pipe(plumber.stop())
         .pipe(gulp.dest(distDir));
+
+    return webpack(require('./webpack.js'), function(err, stats) {
+
+        if (err) {
+          console.error(err);
+        }
+
+        console.log("[webpack]", stats.toString({}));
+        done();
+    });
 });
 
 gulp.task('watch', function() {

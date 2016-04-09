@@ -1,12 +1,9 @@
 "use strict";
 
-var _context;
-
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 exports.Channel = exports.ACTIONS = exports.STATES = undefined;
-exports.timeout = timeout;
 
 var _slicedToArray2 = require('babel-runtime/helpers/slicedToArray');
 
@@ -48,70 +45,14 @@ var _symbol = require('babel-runtime/core-js/symbol');
 
 var _symbol2 = _interopRequireDefault(_symbol);
 
-var _dataStructures = require('./data-structures.js');
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-var log = (_context = console).log.bind(_context); // eslint-disable-line no-unused-vars
-
-/*
-    Three possible states:
-
-    OPEN   : The Channel can be written to and taken from freely.
-    CLOSED : The Channel can no longer be written to, but still has values to be taken.
-    ENDED  : The Channel is closed, and no longer has values to be taken.
-*/
-var STATES = exports.STATES = {
-    OPEN: (0, _symbol2.default)('channel_open'),
-    CLOSED: (0, _symbol2.default)('channel_closed'),
-    ENDED: (0, _symbol2.default)('channel_ended')
-};
-
-var ACTIONS = exports.ACTIONS = {
-    // channel has just been closed, and has no more values to take
-    DONE: (0, _symbol2.default)('channel_done'),
-    CANCEL: (0, _symbol2.default)('channel_cancel')
-};
-
-var SLIDER = (0, _symbol2.default)('channel_slider');
-var STATE = (0, _symbol2.default)('channel_state');
-var SHOULD_CLOSE = (0, _symbol2.default)('channel_should_close');
-var IS_CONSUMING = (0, _symbol2.default)('channel_consuming');
-var IS_FLUSHING = (0, _symbol2.default)('channel_flushing');
-var IS_SLIDING = (0, _symbol2.default)('channel_sliding');
-
-/*
-    Error expose method to assist with ensuring
-    that error messages are properly thrown instead of swallowed.
-
-    setTimeout is used to ensure that the error is thrown
-    from a location that will not be eaten by an async throw.
-*/
-function expose(e) {
-    setTimeout(function () {
-        throw e;
-    });
-}
-
-/*
-    Marks a channel as ended, and signals any promises
-    which are waiting for the end of the channel.
-*/
-function finish(ch) {
-    ch[STATE] = STATES.ENDED;
-    var waiting = null;
-    while (waiting = ch.waiting.shift()) {
-        // eslint-disable-line no-cond-assign
-        waiting();
-    }
-}
+var _context;
 
 /*
     Flushes out any remaining takes from the channel
     by sending them the value of `ACTIONS.DONE`.
 */
 
-var flush = (function () {
+var flush = function () {
     var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee(ch) {
         var take, takes;
         return _regenerator2.default.wrap(function _callee$(_context2) {
@@ -157,106 +98,9 @@ var flush = (function () {
     return function flush(_x) {
         return ref.apply(this, arguments);
     };
-})();
+}();
 
-function wrap(val, transform, resolve) {
-    var _this = this;
-
-    var wrapped = null;
-    if (transform instanceof Function) {
-        if (transform.length === 1) {
-            wrapped = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee2() {
-                var transformed, actual;
-                return _regenerator2.default.wrap(function _callee2$(_context3) {
-                    while (1) {
-                        switch (_context3.prev = _context3.next) {
-                            case 0:
-                                transformed = transform(val);
-
-                                if (!(transformed instanceof _promise2.default)) {
-                                    _context3.next = 6;
-                                    break;
-                                }
-
-                                _context3.next = 4;
-                                return transformed;
-
-                            case 4:
-                                actual = _context3.sent;
-                                return _context3.abrupt('return', actual);
-
-                            case 6:
-                                return _context3.abrupt('return', transformed);
-
-                            case 7:
-                            case 'end':
-                                return _context3.stop();
-                        }
-                    }
-                }, _callee2, _this);
-            }));
-        } else {
-            (function () {
-                var accepted = new _dataStructures.List();
-                if (transform.length === 2) {
-                    wrapped = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee3() {
-                        return _regenerator2.default.wrap(function _callee3$(_context4) {
-                            while (1) {
-                                switch (_context4.prev = _context4.next) {
-                                    case 0:
-                                        _context4.next = 2;
-                                        return transform(val, function (acc) {
-                                            if (typeof acc !== 'undefined') accepted.push(acc);
-                                        });
-
-                                    case 2:
-                                        return _context4.abrupt('return', accepted);
-
-                                    case 3:
-                                    case 'end':
-                                        return _context4.stop();
-                                }
-                            }
-                        }, _callee3, _this);
-                    }));
-                } else /* transform.length === 3 */{
-                        wrapped = function () {
-                            return new _promise2.default(function (res) {
-                                transform(val, function (acc) {
-                                    if (typeof acc !== 'undefined') accepted.push(acc);
-                                }, function () {
-                                    res(accepted);
-                                });
-                            });
-                        };
-                    }
-            })();
-        }
-    } else {
-        wrapped = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee4() {
-            return _regenerator2.default.wrap(function _callee4$(_context5) {
-                while (1) {
-                    switch (_context5.prev = _context5.next) {
-                        case 0:
-                            return _context5.abrupt('return', val);
-
-                        case 1:
-                        case 'end':
-                            return _context5.stop();
-                    }
-                }
-            }, _callee4, _this);
-        }));
-    }
-    return {
-        wrapped: wrapped,
-        resolve: resolve,
-        transform: transform,
-        val: val
-    };
-}
-
-var _bufferedSlide = (function () {
+var _bufferedSlide = function () {
     var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee5(ch) {
         var _this2 = this;
 
@@ -384,9 +228,9 @@ var _bufferedSlide = (function () {
     return function _bufferedSlide(_x2) {
         return ref.apply(this, arguments);
     };
-})();
+}();
 
-var _slide = (function () {
+var _slide = function () {
     var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee6(ch) {
         var _this3 = this;
 
@@ -397,8 +241,7 @@ var _slide = (function () {
                 switch (_context9.prev = _context9.next) {
                     case 0:
                         _loop2 = _regenerator2.default.mark(function _loop2() {
-                            var put, val, _take2;
-
+                            var put, val, take;
                             return _regenerator2.default.wrap(function _loop2$(_context8) {
                                 while (1) {
                                     switch (_context8.prev = _context8.next) {
@@ -417,8 +260,8 @@ var _slide = (function () {
                                                         var accepted = [].concat((0, _toConsumableArray3.default)(val));
                                                         if (accepted.length === 0) put.resolve();else if (accepted.length === 1) {
                                                             put.resolve();
-                                                            var _take = ch.takes.shift();
-                                                            _take(accepted[0]);
+                                                            var take = ch.takes.shift();
+                                                            take(accepted[0]);
                                                         } else /* val.length > 1 */{
                                                                 (function () {
                                                                     var _ch$puts;
@@ -439,9 +282,9 @@ var _slide = (function () {
                                                     })();
                                                 } else {
                                                     put.resolve();
-                                                    _take2 = ch.takes.shift();
+                                                    take = ch.takes.shift();
 
-                                                    _take2(val);
+                                                    take(val);
                                                 }
                                             } else {
                                                 put.resolve();
@@ -477,13 +320,9 @@ var _slide = (function () {
     return function _slide(_x3) {
         return ref.apply(this, arguments);
     };
-})();
+}();
 
-function canSlide(ch) {
-    return ch.buf ? !ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty() : !ch.takes.empty() && !ch.puts.empty();
-}
-
-var slide = (function () {
+var slide = function () {
     var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee7(ch) {
         var _ch$puts2;
 
@@ -552,7 +391,183 @@ var slide = (function () {
     return function slide(_x4) {
         return ref.apply(this, arguments);
     };
-})();
+}();
+
+exports.timeout = timeout;
+
+var _dataStructures = require('./data-structures.js');
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var log = (_context = console).log.bind(_context); // eslint-disable-line no-unused-vars
+
+/*
+    Three possible states:
+
+    OPEN   : The Channel can be written to and taken from freely.
+    CLOSED : The Channel can no longer be written to, but still has values to be taken.
+    ENDED  : The Channel is closed, and no longer has values to be taken.
+*/
+var STATES = exports.STATES = {
+    OPEN: (0, _symbol2.default)('channel_open'),
+    CLOSED: (0, _symbol2.default)('channel_closed'),
+    ENDED: (0, _symbol2.default)('channel_ended')
+};
+
+var ACTIONS = exports.ACTIONS = {
+    // channel has just been closed, and has no more values to take
+    DONE: (0, _symbol2.default)('channel_done'),
+    CANCEL: (0, _symbol2.default)('channel_cancel')
+};
+
+var SLIDER = (0, _symbol2.default)('channel_slider');
+var STATE = (0, _symbol2.default)('channel_state');
+var SHOULD_CLOSE = (0, _symbol2.default)('channel_should_close');
+var IS_CONSUMING = (0, _symbol2.default)('channel_consuming');
+var IS_FLUSHING = (0, _symbol2.default)('channel_flushing');
+var IS_SLIDING = (0, _symbol2.default)('channel_sliding');
+
+/*
+    Error expose method to assist with ensuring
+    that error messages are properly thrown instead of swallowed.
+
+    setTimeout is used to ensure that the error is thrown
+    from a location that will not be eaten by an async throw.
+*/
+function expose(e) {
+    setTimeout(function () {
+        throw e;
+    });
+}
+
+/*
+    Marks a channel as ended, and signals any promises
+    which are waiting for the end of the channel.
+*/
+function finish(ch) {
+    ch[STATE] = STATES.ENDED;
+    var waiting = null;
+    while (waiting = ch.waiting.shift()) {
+        // eslint-disable-line no-cond-assign
+        waiting();
+    }
+}
+
+function wrap(val, transform, resolve) {
+    var _this = this;
+
+    var wrapped = null;
+    if (transform instanceof Function) {
+        if (transform.length === 1) {
+            wrapped = function () {
+                var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee2() {
+                    var transformed, actual;
+                    return _regenerator2.default.wrap(function _callee2$(_context3) {
+                        while (1) {
+                            switch (_context3.prev = _context3.next) {
+                                case 0:
+                                    transformed = transform(val);
+
+                                    if (!(transformed instanceof _promise2.default)) {
+                                        _context3.next = 6;
+                                        break;
+                                    }
+
+                                    _context3.next = 4;
+                                    return transformed;
+
+                                case 4:
+                                    actual = _context3.sent;
+                                    return _context3.abrupt('return', actual);
+
+                                case 6:
+                                    return _context3.abrupt('return', transformed);
+
+                                case 7:
+                                case 'end':
+                                    return _context3.stop();
+                            }
+                        }
+                    }, _callee2, _this);
+                }));
+                return function wrapped() {
+                    return ref.apply(this, arguments);
+                };
+            }();
+        } else {
+            (function () {
+                var accepted = new _dataStructures.List();
+                if (transform.length === 2) {
+                    wrapped = function () {
+                        var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee3() {
+                            return _regenerator2.default.wrap(function _callee3$(_context4) {
+                                while (1) {
+                                    switch (_context4.prev = _context4.next) {
+                                        case 0:
+                                            _context4.next = 2;
+                                            return transform(val, function (acc) {
+                                                if (typeof acc !== 'undefined') accepted.push(acc);
+                                            });
+
+                                        case 2:
+                                            return _context4.abrupt('return', accepted);
+
+                                        case 3:
+                                        case 'end':
+                                            return _context4.stop();
+                                    }
+                                }
+                            }, _callee3, _this);
+                        }));
+                        return function wrapped() {
+                            return ref.apply(this, arguments);
+                        };
+                    }();
+                } else /* transform.length === 3 */{
+                        wrapped = function wrapped() {
+                            return new _promise2.default(function (res) {
+                                transform(val, function (acc) {
+                                    if (typeof acc !== 'undefined') accepted.push(acc);
+                                }, function () {
+                                    res(accepted);
+                                });
+                            });
+                        };
+                    }
+            })();
+        }
+    } else {
+        wrapped = function () {
+            var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee4() {
+                return _regenerator2.default.wrap(function _callee4$(_context5) {
+                    while (1) {
+                        switch (_context5.prev = _context5.next) {
+                            case 0:
+                                return _context5.abrupt('return', val);
+
+                            case 1:
+                            case 'end':
+                                return _context5.stop();
+                        }
+                    }
+                }, _callee4, _this);
+            }));
+            return function wrapped() {
+                return ref.apply(this, arguments);
+            };
+        }();
+    }
+    return {
+        wrapped: wrapped,
+        resolve: resolve,
+        transform: transform,
+        val: val
+    };
+}
+
+function canSlide(ch) {
+    return ch.buf ? !ch.buf.full() && !ch.puts.empty() || !ch.takes.empty() && !ch.buf.empty() : !ch.takes.empty() && !ch.puts.empty();
+}
 
 function timeout() {
     var delay = arguments.length <= 0 || arguments[0] === undefined ? 0 : arguments[0];
@@ -562,7 +577,7 @@ function timeout() {
     });
 }
 
-var Channel = exports.Channel = (function () {
+var Channel = exports.Channel = function () {
 
     /*
         Default constructor for a Channel.
@@ -575,10 +590,13 @@ var Channel = exports.Channel = (function () {
             new Channel(8, x => x * 2) -> Buffered channel, with transform
     */
 
+
     // An optional pipeline of channels, to be used to pipe values
     // from one channel to multiple others.
 
+
     // A FixedQueue containing values ready to be taken.
+
 
     // A List containing any puts to be appended to the end of the channel
 
@@ -613,17 +631,23 @@ var Channel = exports.Channel = (function () {
         placing all of the iterable's values onto that channel.
     */
 
+
     // An optional array of promises, to be resolved when the channel is marked as finished.
+
 
     // An optional function to used to transform values passing through the channel.
 
+
     // A List containing any takes waiting for values to be provided
 
+
     // A List containing any puts which could not be placed directly onto the buffer
+
 
     (0, _createClass3.default)(Channel, [{
         key: 'close',
         // we have a timing problem with pipes.. this resolves it, but is hacky.
+
 
         /*
             Calls Channel.close for `this`, `all`.
@@ -642,6 +666,7 @@ var Channel = exports.Channel = (function () {
     }, {
         key: 'empty',
 
+
         /*
             Returns Channel.empty for `this`.
         */
@@ -657,6 +682,7 @@ var Channel = exports.Channel = (function () {
 
     }, {
         key: 'put',
+
 
         /*
             Returns Channel.put for `this`, `val`.
@@ -674,6 +700,7 @@ var Channel = exports.Channel = (function () {
     }, {
         key: 'take',
 
+
         /*
             Returns Channel.take for `this`.
         */
@@ -682,6 +709,7 @@ var Channel = exports.Channel = (function () {
         }
     }, {
         key: 'tail',
+
 
         /*
             Returns Channel.tail for `this`.
@@ -698,6 +726,7 @@ var Channel = exports.Channel = (function () {
     }, {
         key: 'produce',
 
+
         /*
             Calls Channel.produce for `this`, `producer`.
         */
@@ -712,6 +741,7 @@ var Channel = exports.Channel = (function () {
 
     }, {
         key: 'consume',
+
 
         /*
             Calls Channel.consume for `this`, `consumer`.
@@ -729,6 +759,7 @@ var Channel = exports.Channel = (function () {
 
     }, {
         key: 'done',
+
 
         /*
             Returns Channel.done for `this`.
@@ -749,6 +780,7 @@ var Channel = exports.Channel = (function () {
     }, {
         key: 'pipe',
 
+
         /*
             Returns Channel.pipe for `this`, `...channels`.
         */
@@ -766,6 +798,7 @@ var Channel = exports.Channel = (function () {
 
     }, {
         key: 'merge',
+
 
         /*
             Returns Channel.merge for `this`, `...channels`.
@@ -788,6 +821,7 @@ var Channel = exports.Channel = (function () {
         }
     }, {
         key: 'state',
+
 
         /*
             Sets the state of the channel.
@@ -917,7 +951,7 @@ var Channel = exports.Channel = (function () {
         }
     }, {
         key: 'produce',
-        value: (function () {
+        value: function () {
             var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee9(ch, producer) {
                 var _this4 = this;
 
@@ -1008,13 +1042,16 @@ var Channel = exports.Channel = (function () {
                     }
                 }, _callee9, this);
             }));
-            return function produce(_x10, _x11) {
+
+            function produce(_x10, _x11) {
                 return ref.apply(this, arguments);
-            };
-        })()
+            }
+
+            return produce;
+        }()
     }, {
         key: 'consume',
-        value: (function () {
+        value: function () {
             var ref = (0, _asyncToGenerator3.default)(_regenerator2.default.mark(function _callee11(ch) {
                 var _this5 = this;
 
@@ -1096,10 +1133,13 @@ var Channel = exports.Channel = (function () {
                     }
                 }, _callee11, this);
             }));
-            return function consume(_x12, _x13) {
+
+            function consume(_x12, _x13) {
                 return ref.apply(this, arguments);
-            };
-        })()
+            }
+
+            return consume;
+        }()
     }, {
         key: 'done',
         value: function done(ch) {
@@ -1386,7 +1426,7 @@ var Channel = exports.Channel = (function () {
         }
     }]);
     return Channel;
-})();
+}();
 
 Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
 

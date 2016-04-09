@@ -1,0 +1,37 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Async-CSP example</title>
+</head>
+<body>
+  <h1> Async-CSP browser UMD example </h1>
+  <h3> See console for output </h3>
+
+  <script src="../../dist/umd/async-csp.js"></script>
+  <script>
+    'use strict';
+
+    const Channel = window['async-csp'].Channel;
+    
+    let ch = new Channel(x => x * 2);
+
+    ch.put(1).then(() => console.log('Put 1'));
+    ch.put(2).then(() => console.log('Put 2'));
+    ch.put(3).then(() => console.log('Put 3'));
+    ch.put(4).then(() => console.log('Put 4'));
+    ch.put(5).then(() => console.log('Put 5'));
+
+    ch.take().then(val => console.log('Took:', val));
+    ch.take().then(val => console.log('Took:', val));
+    ch.take().then(val => console.log('Took:', val));
+    ch.take().then(val => console.log('Took:', val));
+    ch.take().then(val => console.log('Took:', val));
+
+    ch.close();
+    ch.done().then(() => console.log('Channel is finished!'));
+
+  </script>
+</body>
+</html>

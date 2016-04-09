@@ -3,7 +3,7 @@ var path    = require('path');
 
 module.exports = {
   context: path.join(__dirname),
-  entry: "./src/channel.js",
+  entry: ["babel-polyfill", "./src/channel.js"],
   output: {
       path: path.join(__dirname, './dist'),
       filename: "async-csp.js",

@@ -1,5 +1,23 @@
 # Change Log
 
+## 0.5.0 (2016-04-17)
+
+### Added
+
+- `Channel.pipeline()` can accept a `Channel` directly. ([efbb0a5](https://github.com/dvlsg/async-csp/commit/efbb0a5cd0d2033dca530c999bf389da2704aded))
+
+- `Channel.pipeline()` can accept a `Function` directly. ([afa1e70](https://github.com/dvlsg/async-csp/commit/afa1e70deff3fd2de0f5d90632d146d6969893fe))
+
+- `Channel` is now exposed as both named and default. ([fc2d063](https://github.com/dvlsg/async-csp/commit/fc2d063a803dea11cbe571191bd775d78fca6310))
+
+- Added umd output in `dist`. ([d7640c1](https://github.com/dvlsg/async-csp/commit/d7640c156fdb83432772cda2729061c0bbf44dbd), [4728a52](https://github.com/dvlsg/async-csp/commit/4728a522e6a21118b0e94dad575947c3eb563bab))
+
+## 0.4.0 (2016-03-27)
+
+### Changed
+
+- Using Babel v6 to build the dist files ([1b9ca7d])(https://github.com/dvlsg/async-csp/commit/1b9ca7d7d4b740544e0d812a163087d3d6b2b321)
+
 ## 0.3.0 (2015-11-21)
 
 ### Changed

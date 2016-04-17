@@ -17,7 +17,7 @@ describe('Channel', function() {
             assert.is(ch, Channel);
             assert.equal(ch.state, STATES.OPEN);
 
-            assert.exists(ch.puts); 
+            assert.exists(ch.puts);
             assert.is(ch.puts, List);
             assert.true(ch.puts.empty());
 

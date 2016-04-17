@@ -408,6 +408,23 @@ console.log(await ch2.take()); //=>  3
 console.log(await ch3.take()); //=>  3
 ```
 
+Typically, it is recommended to pass a `Channel` into pipe, but if you need a shortcut for creating a `Channel` from a transform callback, you may also pass in a callback directly.
+
+```js
+let ch1 = new Channel(x => x + 1);
+
+// note that this returns a reference to the last `Channel` from `#pipe()`
+let ch3 = ch1.pipe(x => x + 2).pipe(x => x + 3); 
+
+ch1.put(1);
+ch1.put(2);
+ch1.put(3);
+
+console.log(await ch3.take()); //=> 7
+console.log(await ch3.take()); //=> 8
+console.log(await ch3.take()); //=> 9
+```
+
 Also take note that if one downstream `Channel` is blocked from a currently unresolved `Channel#put()` (buffered or non-buffered), then the *entire* pipe will be blocked.
 In the example above, an attempt to take all 3 values from `ch2` before taking any values from `ch3` would have resulted in deadlock.
 
@@ -431,16 +448,16 @@ console.log(await ch3.take()); //=> { x: '5' }
 
 ### Channel.pipeline()
 
-`Channel.pipeline()` is a helper method for creating piped channels from any number of callbacks.
-Callbacks can be provided either as separate arguments, or contained in an array as the first argument.
+`Channel.pipeline()` is a helper method for creating piped channels from any number of callbacks or `Channels`.
+Inputs can be provided either as separate arguments, or contained in an array as the first argument. If an input is provided as a callback, it will be turned into a `Channel` using that callback as the transform.
 
 `Channel.pipeline()` will return an array containing the first and the last `Channel` in the pipeline.
 
 ```js
 let [ ch1, ch3 ] = Channel.pipeline(
     x => x + 2,
-    x => x.toString(),
-    x => ({ x })
+    new Channel(x => x.toString()),
+    async x => ({ x })
 );
 
 ch1.put(1);

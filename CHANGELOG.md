@@ -6,7 +6,7 @@
 
 - `Channel.pipeline()` can accept a `Channel` directly. ([efbb0a5](https://github.com/dvlsg/async-csp/commit/efbb0a5cd0d2033dca530c999bf389da2704aded))
 
-- `Channel.pipeline()` can accept a `Function` directly. ([afa1e70](https://github.com/dvlsg/async-csp/commit/afa1e70deff3fd2de0f5d90632d146d6969893fe))
+- `Channel#pipe()` can accept a `Function` directly. ([afa1e70](https://github.com/dvlsg/async-csp/commit/afa1e70deff3fd2de0f5d90632d146d6969893fe))
 
 - `Channel` is now exposed as both named and default. ([fc2d063](https://github.com/dvlsg/async-csp/commit/fc2d063a803dea11cbe571191bd775d78fca6310))
 

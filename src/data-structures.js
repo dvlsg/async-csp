@@ -156,3 +156,76 @@ export class FixedQueue extends Queue {
         return this[ARR].unshift(...vals);
     }
 }
+
+export class DroppingBuffer extends Queue {
+    constructor(size = MAX_SIZE) {
+        super();
+        this[SIZE] = size;
+    }
+
+    get [Symbol.toStringTag]() {
+        return 'DroppingBuffer';
+    }
+
+    unshift(...vals) {
+        // we only need to grab the first item
+        if (this[ARR].length === 0 && vals[0])
+            this[ARR][0] = vals[0];
+    }
+
+    push(val) {
+        if (this[ARR].length === 0)
+            this[ARR][0] = val;
+    }
+
+    full() {
+        return false;
+    }
+}
+
+export class SlidingBuffer extends Queue {
+    constructor(size = MAX_SIZE) {
+        super();
+        this[SIZE] = size; // need to make sure size is a positive integer.
+        this.head = 0; // pointer to oldest value
+        this.tail = 0; // pointer to newest value
+        this.count = 0;
+    }
+
+    get[Symbol.toStringTag]() {
+        return 'SlidingBuffer';
+    }
+
+    empty() {
+        return this.count === 0;
+    }
+
+    full() {
+        return false;
+    }
+
+    push(val) {
+        if (this.count === 0) {
+            this[ARR][this.tail] = val;
+            this.head = this.tail;
+            this.count = 1;
+            return;
+        }
+        let _size = this[SIZE];
+        this.tail = (this.tail + 1) % _size;
+        this[ARR][this.tail] = val;
+        let overwrite = this.tail === this.head;
+        if (overwrite)
+            this.head = (this.head + 1) % _size;
+        if (!overwrite)
+            this.count += 1;
+    }
+
+    shift() {
+        let val = this[ARR][this.head];
+        delete this[ARR][this.head];
+        this.head = (this.head + 1) % this[SIZE];
+        this.count -= 1;
+        return val;
+    }
+}

@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
-exports.FixedQueue = exports.List = exports.Queue = exports.FixedStack = exports.Stack = undefined;
+exports.SlidingBuffer = exports.DroppingBuffer = exports.FixedQueue = exports.List = exports.Queue = exports.FixedStack = exports.Stack = undefined;
 
 var _get2 = require('babel-runtime/helpers/get');
 
@@ -281,4 +281,102 @@ var FixedQueue = exports.FixedQueue = function (_Queue2) {
         }
     }]);
     return FixedQueue;
+}(Queue);
+
+var DroppingBuffer = exports.DroppingBuffer = function (_Queue3) {
+    (0, _inherits3.default)(DroppingBuffer, _Queue3);
+
+    function DroppingBuffer() {
+        var size = arguments.length <= 0 || arguments[0] === undefined ? MAX_SIZE : arguments[0];
+        (0, _classCallCheck3.default)(this, DroppingBuffer);
+
+        var _this6 = (0, _possibleConstructorReturn3.default)(this, (0, _getPrototypeOf2.default)(DroppingBuffer).call(this));
+
+        _this6[SIZE] = size;
+        return _this6;
+    }
+
+    (0, _createClass3.default)(DroppingBuffer, [{
+        key: 'unshift',
+        value: function unshift() {
+            // we only need to grab the first item
+            if (this[ARR].length === 0 && (arguments.length <= 0 ? undefined : arguments[0])) this[ARR][0] = arguments.length <= 0 ? undefined : arguments[0];
+        }
+    }, {
+        key: 'push',
+        value: function push(val) {
+            if (this[ARR].length === 0) this[ARR][0] = val;
+        }
+    }, {
+        key: 'full',
+        value: function full() {
+            return false;
+        }
+    }, {
+        key: _toStringTag2.default,
+        get: function get() {
+            return 'DroppingBuffer';
+        }
+    }]);
+    return DroppingBuffer;
+}(Queue);
+
+var SlidingBuffer = exports.SlidingBuffer = function (_Queue4) {
+    (0, _inherits3.default)(SlidingBuffer, _Queue4);
+
+    function SlidingBuffer() {
+        var size = arguments.length <= 0 || arguments[0] === undefined ? MAX_SIZE : arguments[0];
+        (0, _classCallCheck3.default)(this, SlidingBuffer);
+
+        var _this7 = (0, _possibleConstructorReturn3.default)(this, (0, _getPrototypeOf2.default)(SlidingBuffer).call(this));
+
+        _this7[SIZE] = size; // need to make sure size is a positive integer.
+        _this7.head = 0; // pointer to oldest value
+        _this7.tail = 0; // pointer to newest value
+        _this7.count = 0;
+        return _this7;
+    }
+
+    (0, _createClass3.default)(SlidingBuffer, [{
+        key: 'empty',
+        value: function empty() {
+            return this.count === 0;
+        }
+    }, {
+        key: 'full',
+        value: function full() {
+            return false;
+        }
+    }, {
+        key: 'push',
+        value: function push(val) {
+            if (this.count === 0) {
+                this[ARR][this.tail] = val;
+                this.head = this.tail;
+                this.count = 1;
+                return;
+            }
+            var _size = this[SIZE];
+            this.tail = (this.tail + 1) % _size;
+            this[ARR][this.tail] = val;
+            var overwrite = this.tail === this.head;
+            if (overwrite) this.head = (this.head + 1) % _size;
+            if (!overwrite) this.count += 1;
+        }
+    }, {
+        key: 'shift',
+        value: function shift() {
+            var val = this[ARR][this.head];
+            delete this[ARR][this.head];
+            this.head = (this.head + 1) % this[SIZE];
+            this.count -= 1;
+            return val;
+        }
+    }, {
+        key: _toStringTag2.default,
+        get: function get() {
+            return 'SlidingBuffer';
+        }
+    }]);
+    return SlidingBuffer;
 }(Queue);

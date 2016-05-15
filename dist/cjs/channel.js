@@ -17,6 +17,10 @@ var _getIterator2 = require('babel-runtime/core-js/get-iterator');
 
 var _getIterator3 = _interopRequireDefault(_getIterator2);
 
+var _typeof2 = require('babel-runtime/helpers/typeof');
+
+var _typeof3 = _interopRequireDefault(_typeof2);
+
 var _classCallCheck2 = require('babel-runtime/helpers/classCallCheck');
 
 var _classCallCheck3 = _interopRequireDefault(_classCallCheck2);
@@ -395,7 +399,7 @@ var slide = function () {
 
 exports.timeout = timeout;
 
-var _dataStructures = require('./data-structures.js');
+var _dataStructures = require('./data-structures');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -612,9 +616,16 @@ var Channel = exports.Channel = function () {
 
         var size = null;
         var transform = null;
+        var buffer = null;
         if (typeof (arguments.length <= 0 ? undefined : arguments[0]) === 'function') transform = arguments.length <= 0 ? undefined : arguments[0];
         if (typeof (arguments.length <= 0 ? undefined : arguments[0]) === 'number') {
             size = arguments.length <= 0 ? undefined : arguments[0];
+            if ((arguments.length <= 1 ? undefined : arguments[1]) && typeof (arguments.length <= 1 ? undefined : arguments[1]) === 'function') transform = arguments.length <= 1 ? undefined : arguments[1];
+        }
+        if ((0, _typeof3.default)(arguments.length <= 0 ? undefined : arguments[0]) === 'object') {
+            // assume first arg is buffer type
+            // consider adding some duck-type or instanceof safety
+            buffer = arguments.length <= 0 ? undefined : arguments[0];
             if ((arguments.length <= 1 ? undefined : arguments[1]) && typeof (arguments.length <= 1 ? undefined : arguments[1]) === 'function') transform = arguments.length <= 1 ? undefined : arguments[1];
         }
         this.transform = transform;
@@ -622,6 +633,9 @@ var Channel = exports.Channel = function () {
 
         if (size) {
             this.buf = new _dataStructures.FixedQueue(size);
+            this[SLIDER] = _bufferedSlide;
+        } else if (buffer) {
+            this.buf = buffer;
             this[SLIDER] = _bufferedSlide;
         } else this[SLIDER] = _slide;
     }

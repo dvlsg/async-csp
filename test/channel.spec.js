@@ -1097,6 +1097,47 @@ describe('Channel', function() {
             assert.equal(ch.state, STATES.ENDED);
         });
 
+        it('should work with DroppingBuffer', async() => {
+            let buf = new DroppingBuffer();
+            let transformer = (x, push) => {
+                push(x);
+                push(x + 1);
+            };
+            let ch = new Channel(buf, transformer);
+            let values = [ 1, 2, 3, 4, 5 ];
+            for (let val of values)
+                await ch.put(val); // note that we aren't blocked, even while awaiting.
+            assert.equal(buf.full(), false);
+            await timeout(10);
+            let val = await ch.take();
+            assert.equal(val, 1);
+            assert.equal(buf.full(), false);
+        });
+
+        it('should work with a SlidingBuffer', async() => {
+            let buf1 = new SlidingBuffer(1);
+            let ch1 = new Channel(buf1);
+            let vals = [ 1, 2, 3, 4 ];
+            for (let val of vals)
+                await ch1.put(val);
+            assert.equal(await ch1.take(), 4);
+
+            let buf2 = new SlidingBuffer(2);
+            let ch2 = new Channel(buf2);
+            await ch2.put(1);
+            await ch2.put(2);
+            await ch2.put(3);
+            await ch2.put(4);
+            assert.equal(await ch2.take(), 3);
+            await ch2.put(5);
+            assert.equal(await ch2.take(), 4);
+            assert.equal(await ch2.take(), 5);
+            await ch2.put(6);
+            await ch2.put(7);
+            await ch2.put(8);
+            assert.equal(await ch2.take(), 7);
+            assert.equal(await ch2.take(), 8);
+        });
     });
 
 });

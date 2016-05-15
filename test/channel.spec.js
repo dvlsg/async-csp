@@ -1,7 +1,7 @@
 "use strict";
 
-import Channel, { STATES, timeout } from '../src/channel.js';
-import { List, FixedQueue } from '../src/data-structures.js';
+import Channel, { STATES, timeout } from '../src/channel';
+import { List, FixedQueue, DroppingBuffer, SlidingBuffer } from '../src/data-structures';
 import assert from 'zana-assert';
 let log = ::console.log; // eslint-disable-line
 

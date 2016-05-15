@@ -1,6 +1,6 @@
 "use strict";
 
-import { List, FixedQueue } from './data-structures.js';
+import { List, FixedQueue } from './data-structures';
 let log = ::console.log; // eslint-disable-line no-unused-vars
 
 /*

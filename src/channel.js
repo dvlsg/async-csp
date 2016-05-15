@@ -294,10 +294,18 @@ export class Channel {
     constructor(...argv) {
         let size = null;
         let transform = null;
+        let buffer = null;
         if (typeof argv[0] === 'function')
             transform = argv[0];
         if (typeof argv[0] === 'number') {
             size = argv[0];
+            if (argv[1] && typeof argv[1] === 'function')
+                transform = argv[1];
+        }
+        if (typeof argv[0] === 'object') {
+            // assume first arg is buffer type
+            // consider adding some duck-type or instanceof safety
+            buffer = argv[0];
             if (argv[1] && typeof argv[1] === 'function')
                 transform = argv[1];
         }
@@ -306,6 +314,10 @@ export class Channel {
 
         if (size) {
             this.buf = new FixedQueue(size);
+            this[SLIDER] = _bufferedSlide;
+        }
+        else if (buffer) {
+            this.buf = buffer;
             this[SLIDER] = _bufferedSlide;
         }
         else

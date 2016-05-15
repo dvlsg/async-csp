@@ -59,6 +59,16 @@ describe('Channel', function() {
             assert.equal(ch.buf.size, size);
             assert.equal(ch.transform, fn);
         });
+
+        it('should accept data structures as first parameter', async() => {
+            let size = 8;
+            let buf = new FixedQueue(size);
+            let ch = new Channel(buf);
+            assert.exists(ch.buf);
+            assert.true(ch.buf.empty());
+            assert.false(ch.buf.full());
+            assert.equal(ch.buf.size, size);
+        });
     });
 
     describe('.from()', () => {

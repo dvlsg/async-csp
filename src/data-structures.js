@@ -47,7 +47,7 @@ class Data {
 }
 // Data[Symbol.toStringTag] = 'Data';
 
-export class Stack extends Data {
+class Stack extends Data {
     constructor() {
         super();
     }
@@ -69,7 +69,7 @@ export class Stack extends Data {
     }
 }
 
-export class FixedStack extends Stack {
+class FixedStack extends Stack {
     constructor(size = MAX_SIZE) {
         super();
         this[SIZE] = size;
@@ -93,7 +93,7 @@ export class FixedStack extends Stack {
     }
 }
 
-export class Queue extends Data {
+class Queue extends Data {
     constructor() {
         super();
     }
@@ -115,7 +115,7 @@ export class Queue extends Data {
     }
 }
 
-export class List extends Queue {
+class List extends Queue {
     constructor() {
         super();
     }
@@ -129,7 +129,7 @@ export class List extends Queue {
     }
 }
 
-export class FixedQueue extends Queue {
+class FixedQueue extends Queue {
     constructor(size = MAX_SIZE) {
         super();
         this[SIZE] = size;
@@ -157,7 +157,7 @@ export class FixedQueue extends Queue {
     }
 }
 
-export class DroppingBuffer extends Queue {
+class DroppingBuffer extends Queue {
     constructor(size = MAX_SIZE) {
         super();
         this[SIZE] = size;
@@ -183,7 +183,7 @@ export class DroppingBuffer extends Queue {
     }
 }
 
-export class SlidingBuffer extends Queue {
+class SlidingBuffer extends Queue {
     constructor(size = MAX_SIZE) {
         super();
         this[SIZE] = size; // need to make sure size is a positive integer.
@@ -229,3 +229,13 @@ export class SlidingBuffer extends Queue {
         return val;
     }
 }
+
+module.exports = {
+    Stack,
+    FixedStack,
+    Queue,
+    List,
+    FixedQueue,
+    DroppingBuffer,
+    SlidingBuffer
+};

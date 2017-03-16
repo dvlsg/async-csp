@@ -1,9 +1,9 @@
 "use strict";
 
-import Channel, { STATES, timeout } from '../src/channel';
-import { List, FixedQueue, DroppingBuffer, SlidingBuffer } from '../src/data-structures';
-import assert from 'zana-assert';
-let log = ::console.log; // eslint-disable-line
+const { STATES, timeout, default: Channel } = require('../src/channel');
+const { List, FixedQueue, DroppingBuffer, SlidingBuffer } = require('../src/data-structures');
+const assert = require('zana-assert').default;
+const log = console.log.bind(console); // eslint-disable-line
 
 describe('Channel', function() {
 

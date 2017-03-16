@@ -17,7 +17,8 @@
   "scripts": {
     "build": "gulp build",
     "test": "gulp test",
-    "watch": "gulp watch"
+    "watch": "gulp watch",
+    "mocha:test": "mocha test --recursive"
   },
   "repository": {
     "type": "git",

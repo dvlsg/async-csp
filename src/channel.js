@@ -1,7 +1,18 @@
 "use strict";
 
-import { List, FixedQueue } from './data-structures';
-let log = ::console.log; // eslint-disable-line no-unused-vars
+const { List, FixedQueue } = require('./data-structures');
+const log = console.log.bind(console); // eslint-disable-line no-unused-vars
+
+function arrayEntries(array) {
+    let i = -1;
+    const length = array.length;
+    const entries = [];
+    while (++i < length) {
+        const val = array[i];
+        entries[entries.length] = [ i, val ];
+    }
+    return entries;
+}
 
 /*
     Three possible states:
@@ -10,13 +21,13 @@ let log = ::console.log; // eslint-disable-line no-unused-vars
     CLOSED : The Channel can no longer be written to, but still has values to be taken.
     ENDED  : The Channel is closed, and no longer has values to be taken.
 */
-export const STATES = {
+const STATES = {
       OPEN   : Symbol('channel_open')
     , CLOSED : Symbol('channel_closed')
     , ENDED  : Symbol('channel_ended')
 };
 
-export const ACTIONS = {
+const ACTIONS = {
     // channel has just been closed, and has no more values to take
     DONE   : Symbol('channel_done'),
     CANCEL : Symbol('channel_cancel')
@@ -249,35 +260,13 @@ async function slide(ch) {
     ch[IS_SLIDING] = false;
 }
 
-export function timeout(delay = 0) {
+function timeout(delay = 0) {
     return new Promise((resolve) => {
         setTimeout(resolve, delay);
     });
 }
 
-export class Channel {
-
-    // A List containing any puts which could not be placed directly onto the buffer
-    puts = new List();
-
-    // A List containing any puts to be appended to the end of the channel
-    tails = new List();
-
-    // A List containing any takes waiting for values to be provided
-    takes = new List();
-
-    // A FixedQueue containing values ready to be taken.
-    buf = null;
-
-    // An optional function to used to transform values passing through the channel.
-    transform = null;
-
-    // An optional pipeline of channels, to be used to pipe values
-    // from one channel to multiple others.
-    pipeline = [];
-
-    // An optional array of promises, to be resolved when the channel is marked as finished.
-    waiting = [];
+class Channel {
 
     /*
         Default constructor for a Channel.
@@ -292,6 +281,28 @@ export class Channel {
             new Channel(8, x => x * 2) -> Buffered channel, with transform
     */
     constructor(...argv) {
+        // A List containing any puts which could not be placed directly onto the buffer
+        this.puts = new List();
+
+        // A List containing any puts to be appended to the end of the channel
+        this.tails = new List();
+
+        // A List containing any takes waiting for values to be provided
+        this.takes = new List();
+
+        // A FixedQueue containing values ready to be taken.
+        this.buf = null;
+
+        // An optional function to used to transform values passing through the channel.
+        this.transform = null;
+
+        // An optional pipeline of channels, to be used to pipe values
+        // from one channel to multiple others.
+        this.pipeline = [];
+
+        // An optional array of promises, to be resolved when the channel is marked as finished.
+        this.waiting = [];
+
         let size = null;
         let transform = null;
         let buffer = null;
@@ -644,7 +655,7 @@ export class Channel {
     }
 
     static unpipe(parent, ...channels) {
-        for (let [ index, pipe ] of Array.entries(parent.pipeline)) {
+        for (let [ index, pipe ] of arrayEntries(parent.pipeline)) {
             for (let ch2 of channels) {
                 if (pipe === ch2)
                     parent.pipeline.splice(index, 1);
@@ -662,4 +673,10 @@ export class Channel {
 
 Channel.DONE = ACTIONS.DONE; // expose this so loops can listen for it
 
-export default Channel;
+module.exports = {
+    default: Channel,
+    Channel,
+    timeout,
+    STATES,
+    ACTIONS
+};

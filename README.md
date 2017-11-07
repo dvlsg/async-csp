@@ -144,8 +144,8 @@ async function takes(ch) {
     console.log(await ch.take()); // resolves to 3, from the third ch.put()
 }
 
-puts(ch);
-takes(ch);
+puts(channel);
+takes(channel);
 ```
 
 ### Buffering

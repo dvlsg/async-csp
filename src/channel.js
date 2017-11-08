@@ -645,6 +645,22 @@ class Channel {
     return Channel.unpipe(this, ...channels)
   }
 
+  map(mapper) {
+    const target = new Channel()
+    ;(async () => {
+      while (true) {
+        const val = await this.take()
+        if (val === ACTIONS.DONE) {
+          target.close()
+          break
+        }
+        const mapped = await mapper(val) // need try/catch/error out the channel
+        await target.put(mapped)
+      }
+    })()
+    return target
+  }
+
   async toArray() {
     const arr = []
     while (true) {

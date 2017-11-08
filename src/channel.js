@@ -644,6 +644,18 @@ class Channel {
   unpipe(...channels) {
     return Channel.unpipe(this, ...channels)
   }
+
+  async toArray() {
+    const arr = []
+    while (true) {
+      const val = await this.take()
+      if (val === ACTIONS.DONE) {
+        break
+      }
+      arr[arr.length] = val
+    }
+    return arr
+  }
 }
 
 Channel.DONE = ACTIONS.DONE // expose this so loops can listen for it
